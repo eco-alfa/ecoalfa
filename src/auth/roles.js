@@ -18,7 +18,7 @@ export const ROUTE_PERMISSIONS = {
   pacientes: [ROLES.ADMIN, ROLES.MEDICO],
   inventario: [ROLES.ADMIN, ROLES.MEDICO, ROLES.OPERADOR],
   facturacion: [ROLES.ADMIN, ROLES.MEDICO, ROLES.OPERADOR],
-  usuarios: [ROLES.ADMIN, ROLES.MEDICO]
+  usuarios: [ROLES.ADMIN]
 };
 
 export function canAccess(route, role) {

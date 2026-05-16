@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -50,34 +51,49 @@ export async function searchPatientsByDocument(documentNumber) {
   }));
 }
 
+export async function getPatientById(patientId) {
+  const patientSnap = await getDoc(doc(db, "patients", patientId));
+
+  if (!patientSnap.exists()) {
+    return null;
+  }
+
+  return {
+    id: patientSnap.id,
+    ...patientSnap.data()
+  };
+}
+
 export async function upsertPatient(patientId, patient) {
   const firstName = patient.firstName?.trim() || "";
-  const secondName = patient.secondName?.trim() || "";
+  const middleName = patient.middleName?.trim() || "";
   const firstLastName = patient.firstLastName?.trim() || "";
   const secondLastName = patient.secondLastName?.trim() || "";
-  const fullName = patient.fullName?.trim() || [firstName, secondName, firstLastName, secondLastName].filter(Boolean).join(" ");
+  const fullName = patient.fullName?.trim() || [firstName, middleName, firstLastName, secondLastName].filter(Boolean).join(" ");
 
   const payload = {
     documentType: patient.documentType || "CC",
     documentNumber: patient.documentNumber.trim(),
     firstName,
-    secondName,
+    middleName,
     firstLastName,
     secondLastName,
     fullName,
-    phone: patient.phone?.trim() || "",
     email: patient.email?.trim().toLowerCase() || "",
-    birthDate: patient.birthDate || "",
-    gender: patient.gender || "Prefiero no decirlo",
+    phone: patient.phone?.trim() || "",
     address: patient.address?.trim() || "",
     neighborhood: patient.neighborhood?.trim() || "",
     municipality: patient.municipality?.trim() || "",
+    gender: patient.gender || "Prefiero no decirlo",
+    customGender: patient.customGender?.trim() || "",
+    birthDate: patient.birthDate || "",
     eps: patient.eps?.trim() || "",
     bloodType: patient.bloodType || "",
-    occupation: patient.occupation?.trim() || "",
     emergencyContactName: patient.emergencyContactName?.trim() || "",
     emergencyContactPhone: patient.emergencyContactPhone?.trim() || "",
+    allergies: patient.allergies?.trim() || "",
     background: patient.background?.trim() || "",
+    source: patient.source || "manual",
     updatedAt: serverTimestamp()
   };
 
@@ -116,12 +132,17 @@ export async function getClinicalRecords(patientId, lastVisible = null) {
 
 export async function createClinicalRecord(patientId, record) {
   await addDoc(collection(db, "patients", patientId, "clinicalRecords"), {
-    reason: record.reason?.trim() || "",
-    currentIllness: record.currentIllness?.trim() || "",
+    consultationDate: record.consultationDate || new Date().toISOString().slice(0, 10),
+    doctorName: record.doctorName?.trim() || "",
+    reason: record.reason.trim(),
+    currentIllness: record.currentIllness.trim(),
     personalHistory: record.personalHistory?.trim() || "",
     familyHistory: record.familyHistory?.trim() || "",
+    surgicalHistory: record.surgicalHistory?.trim() || "",
+    pharmacologicalHistory: record.pharmacologicalHistory?.trim() || "",
     allergies: record.allergies?.trim() || "",
-    currentMedications: record.currentMedications?.trim() || "",
+    gynecoObstetricHistory: record.gynecoObstetricHistory?.trim() || "",
+    systemsReview: record.systemsReview.trim(),
     vitalSigns: {
       bloodPressure: record.bloodPressure?.trim() || "",
       heartRate: record.heartRate?.trim() || "",
@@ -132,13 +153,12 @@ export async function createClinicalRecord(patientId, record) {
       height: record.height?.trim() || ""
     },
     physicalExam: record.physicalExam?.trim() || "",
-    systemsReview: record.systemsReview?.trim() || "",
-    diagnosis: record.diagnosis?.trim() || "",
+    diagnosis: record.diagnosis.trim(),
     cie10: record.cie10?.trim() || "",
     treatmentPlan: record.treatmentPlan?.trim() || "",
-    prescription: record.prescription?.trim() || "",
+    prescription: record.prescription.trim(),
     recommendations: record.recommendations?.trim() || "",
-    followUp: record.followUp?.trim() || "",
+    nextControl: record.nextControl || "",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
