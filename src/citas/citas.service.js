@@ -3,18 +3,15 @@ import {
   collection,
   doc,
   getDocs,
-  limit,
   query,
   serverTimestamp,
-  startAfter,
   updateDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { db } from "../firebase/config.js";
 
-const APPOINTMENTS_PAGE_SIZE = 20;
-
 export const APPOINTMENT_STATUSES = [
+  "Solicitada",
   "Programada",
   "Confirmada",
   "En Sala de Espera",
@@ -24,14 +21,8 @@ export const APPOINTMENT_STATUSES = [
 
 export async function getAppointmentsByDate(dateKey, lastVisible = null) {
   const constraints = [
-    where("dateKey", "==", dateKey),
-    orderBy("time", "asc"),
-    limit(APPOINTMENTS_PAGE_SIZE)
+    where("dateKey", "==", dateKey)
   ];
-
-  if (lastVisible) {
-    constraints.splice(2, 0, startAfter(lastVisible));
-  }
 
   const appointmentsQuery = query(collection(db, "appointments"), ...constraints);
   const snapshot = await getDocs(appointmentsQuery);
@@ -40,9 +31,9 @@ export async function getAppointmentsByDate(dateKey, lastVisible = null) {
     appointments: snapshot.docs.map((appointmentDoc) => ({
       id: appointmentDoc.id,
       ...appointmentDoc.data()
-    })),
+    })).sort((a, b) => String(a.time || "").localeCompare(String(b.time || ""))),
     lastVisible: snapshot.docs.at(-1) || null,
-    hasMore: snapshot.docs.length === APPOINTMENTS_PAGE_SIZE
+    hasMore: false
   };
 }
 

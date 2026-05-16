@@ -23,7 +23,11 @@ export function renderCitasView() {
 }
 
 export function renderPacientesView() {
-  return renderModuleShell("Historias clínicas", "Base de pacientes y registros médicos protegidos para Administrador y Médico.");
+  return renderModuleShell("Pacientes", "Gestión de datos, contacto y vinculación con pacientes inscritos desde el portal.");
+}
+
+export function renderHistoriasView() {
+  return renderModuleShell("Historias clínicas", "Atención médica, evolución clínica, prescripción y generación de PDF.");
 }
 
 export function renderInventarioView() {

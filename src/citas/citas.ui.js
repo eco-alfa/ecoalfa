@@ -136,7 +136,14 @@ async function loadAppointments(container, reset) {
     loadMoreButton.classList.toggle("opacity-50", !canLoadMoreAppointments);
     bindTableEvents(container);
   } catch (error) {
-    table.innerHTML = `<div class="p-6 text-sm text-red-600">No fue posible cargar las citas. Verifica reglas o índices de Firestore.</div>`;
+    console.error("No fue posible cargar las citas", error);
+    table.innerHTML = `
+      <div class="space-y-2 p-6 text-sm text-red-700">
+        <p class="font-semibold">No fue posible cargar las citas.</p>
+        <p>Código: ${error?.code || "sin-codigo"}</p>
+        <p>Detalle: ${error?.message || "Sin detalle técnico disponible."}</p>
+      </div>
+    `;
   }
 }
 

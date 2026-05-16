@@ -52,7 +52,8 @@ export async function searchPatientsByDocument(documentNumber) {
 }
 
 export async function getPatientById(patientId) {
-  const patientSnap = await getDoc(doc(db, "patients", patientId));
+  const patientRef = doc(db, "patients", patientId);
+  const patientSnap = await getDoc(patientRef);
 
   if (!patientSnap.exists()) {
     return null;

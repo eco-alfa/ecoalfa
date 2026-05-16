@@ -2,6 +2,7 @@ import { canAccess } from "../auth/roles.js";
 import { renderCitasModule } from "../citas/citas.ui.js";
 import { renderDashboardModule } from "../dashboard/dashboard.ui.js";
 import { renderFacturacionModule } from "../facturacion/facturacion.ui.js";
+import { renderHistoriasModule } from "../pacientes/historias.ui.js";
 import { renderInventarioModule } from "../inventario/inventario.ui.js";
 import { renderPacientesModule } from "../pacientes/pacientes.ui.js";
 import { renderUsuariosModule } from "../usuarios/usuarios.ui.js";
@@ -10,6 +11,7 @@ import {
   renderCitasView,
   renderDashboardView,
   renderFacturacionView,
+  renderHistoriasView,
   renderInventarioView,
   renderPacientesView,
   renderUnauthorizedView,
@@ -20,6 +22,7 @@ const ROUTES = {
   dashboard: renderDashboardView,
   citas: renderCitasView,
   pacientes: renderPacientesView,
+  historias: renderHistoriasView,
   inventario: renderInventarioView,
   facturacion: renderFacturacionView,
   usuarios: renderUsuariosView
@@ -74,6 +77,11 @@ function renderRoute(route, role) {
 
   if (route === "pacientes") {
     renderPacientesModule(view);
+    return;
+  }
+
+  if (route === "historias") {
+    renderHistoriasModule(view);
     return;
   }
 

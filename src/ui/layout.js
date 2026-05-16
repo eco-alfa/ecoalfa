@@ -4,7 +4,8 @@ import { ROLE_LABELS, ROUTE_PERMISSIONS, canAccess } from "../auth/roles.js";
 const NAV_ITEMS = [
   { route: "dashboard", label: "Dashboard" },
   { route: "citas", label: "Citas" },
-  { route: "pacientes", label: "Historias clínicas" },
+  { route: "pacientes", label: "Pacientes" },
+  { route: "historias", label: "Historias clínicas" },
   { route: "inventario", label: "Inventario" },
   { route: "facturacion", label: "Facturación POS" },
   { route: "usuarios", label: "Usuarios" }
