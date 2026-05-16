@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inicializar Ecoalfa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-5xl p-6">
+      <section class="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div>
+            <h1 class="text-3xl font-bold">Inicializar Ecoalfa</h1>
+            <p class="mt-2 text-slate-500">Herramienta temporal para probar conexión Firebase y crear datos iniciales.</p>
+          </div>
+          <a class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" href="./index.html">Volver al sistema</a>
+        </div>
+
+        <div class="mt-8 grid gap-6 lg:grid-cols-[380px_1fr]">
+          <form id="login-form" class="rounded-2xl bg-slate-50 p-6">
+            <h2 class="text-lg font-semibold">1. Iniciar sesión</h2>
+            <p class="mt-1 text-sm text-slate-500">Usa el usuario que ya creaste en Firebase Authentication.</p>
+            <div class="mt-5 space-y-4">
+              <div>
+                <label class="mb-1 block text-sm font-medium" for="email">Correo</label>
+                <input id="email" type="email" required class="w-full rounded-xl border border-slate-300 px-4 py-3" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium" for="password">Contraseña</label>
+                <input id="password" type="password" required class="w-full rounded-xl border border-slate-300 px-4 py-3" />
+              </div>
+              <button class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800" type="submit">Ingresar</button>
+            </div>
+          </form>
+
+          <div class="rounded-2xl bg-slate-950 p-6 text-white">
+            <h2 class="text-lg font-semibold">Logs</h2>
+            <pre id="logs" class="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-4 text-xs"></pre>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-2xl bg-amber-50 p-5 text-sm text-amber-900">
+          <strong>Importante:</strong> si Firestore está vacío y usas las reglas finales, la creación del primer admin puede fallar. En ese caso publica temporalmente `firestore.bootstrap.rules`, ejecuta esta página y después vuelve a publicar `firestore.rules`.
+        </div>
+
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button id="seed-button" disabled class="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50" type="button">2. Iniciar / Crear datos de prueba</button>
+          <button id="logout-button" class="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50" type="button">Cerrar sesión</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        signOut
+      } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+      import {
+        addDoc,
+        collection,
+        doc,
+        getDoc,
+        serverTimestamp,
+        setDoc,
+        writeBatch
+      } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBs85ZtM0tUI5XYypWTze-8xfPJj3EaV5g",
+        authDomain: "ecoalfa-6f9d1.firebaseapp.com",
+        projectId: "ecoalfa-6f9d1",
+        storageBucket: "ecoalfa-6f9d1.firebasestorage.app",
+        messagingSenderId: "760816764581",
+        appId: "1:760816764581:web:31ef204b23ca5980852f4c",
+        measurementId: "G-77WWNZFNY6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const logs = document.querySelector("#logs");
+      const seedButton = document.querySelector("#seed-button");
+      const loginForm = document.querySelector("#login-form");
+      const logoutButton = document.querySelector("#logout-button");
+
+      let currentUser = null;
+
+      function log(message, data = null) {
+        const line = `[${new Date().toLocaleTimeString()}] ${message}`;
+        console.log(line, data || "");
+        logs.textContent += `${line}${data ? `\n${JSON.stringify(data, null, 2)}` : ""}\n\n`;
+        logs.scrollTop = logs.scrollHeight;
+      }
+
+      function logError(message, error) {
+        console.error(message, error);
+        log(`ERROR: ${message}`, {
+          code: error?.code,
+          message: error?.message
+        });
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        currentUser = user;
+        seedButton.disabled = !user;
+
+        if (!user) {
+          log("Sin sesión activa. Ingresa con un usuario de Firebase Authentication.");
+          return;
+        }
+
+        log("Sesión activa", {
+          uid: user.uid,
+          email: user.email
+        });
+
+        await checkProfile(user.uid);
+      });
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        logs.textContent = "";
+
+        try {
+          log("Intentando iniciar sesión...");
+          await signInWithEmailAndPassword(auth, loginForm.email.value.trim(), loginForm.password.value);
+          log("Login correcto.");
+        } catch (error) {
+          logError("No fue posible iniciar sesión", error);
+        }
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        await signOut(auth);
+        log("Sesión cerrada.");
+      });
+
+      seedButton.addEventListener("click", async () => {
+        if (!currentUser) {
+          log("Primero debes iniciar sesión.");
+          return;
+        }
+
+        seedButton.disabled = true;
+
+        try {
+          await createAdminProfile(currentUser);
+          await seedData(currentUser);
+          log("Inicialización terminada correctamente. Ya puedes volver a index.html.");
+        } catch (error) {
+          logError("Falló la inicialización", error);
+        } finally {
+          seedButton.disabled = false;
+        }
+      });
+
+      async function checkProfile(uid) {
+        try {
+          const profileSnap = await getDoc(doc(db, "users", uid));
+          log(profileSnap.exists() ? "Perfil encontrado en Firestore." : "Perfil no existe todavía en Firestore.", profileSnap.exists() ? profileSnap.data() : null);
+        } catch (error) {
+          logError("No se pudo leer users/{uid}. Probablemente faltan reglas bootstrap o perfil admin.", error);
+        }
+      }
+
+      async function createAdminProfile(user) {
+        log("Creando/actualizando perfil admin del usuario actual...");
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          displayName: "Administrador Ecoalfa",
+          role: "admin",
+          active: true,
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        }, { merge: true });
+        log("Perfil admin creado/actualizado.", { uid: user.uid });
+      }
+
+      async function seedData(user) {
+        log("Creando datos de prueba...");
+        const batch = writeBatch(db);
+        const now = serverTimestamp();
+        const medicineRef = doc(collection(db, "inventory"));
+        const movementRef = doc(collection(db, "inventory", medicineRef.id, "movements"));
+        const appointmentRef = doc(collection(db, "appointments"));
+        const patientRef = doc(collection(db, "patients"));
+        const recordRef = doc(collection(db, "patients", patientRef.id, "clinicalRecords"));
+        const invoiceRef = doc(collection(db, "invoices"));
+        const indicatorRef = doc(db, "indicators", "demo");
+
+        batch.set(medicineRef, {
+          name: "Arnica Montana",
+          potency: "30CH",
+          presentation: "Glóbulos",
+          stock: 25,
+          minStock: 5,
+          salePrice: 18000,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        batch.set(movementRef, {
+          type: "entrada",
+          quantity: 25,
+          signedQuantity: 25,
+          note: "Inventario inicial de prueba",
+          createdAt: now
+        });
+
+        batch.set(appointmentRef, {
+          patientName: "Paciente Demo",
+          doctorName: "Dr. Ecoalfa",
+          dateKey: new Date().toISOString().slice(0, 10),
+          time: "09:00",
+          reason: "Consulta inicial de prueba",
+          status: "Programada",
+          createdAt: now,
+          updatedAt: now
+        });
+
+        batch.set(patientRef, {
+          fullName: "Paciente Demo",
+          documentNumber: "1000000000",
+          phone: "3000000000",
+          email: "paciente.demo@ecoalfa.test",
+          birthDate: "1990-01-01",
+          address: "Dirección de prueba",
+          background: "Sin antecedentes relevantes de prueba",
+          createdAt: now,
+          updatedAt: now
+        });
+
+        batch.set(recordRef, {
+          reason: "Motivo de prueba",
+          currentIllness: "Enfermedad actual de prueba",
+          systemsReview: "Revisión por sistemas de prueba",
+          diagnosis: "Diagnóstico de prueba",
+          prescription: "Arnica Montana 30CH - prueba",
+          createdAt: now,
+          updatedAt: now
+        });
+
+        batch.set(invoiceRef, {
+          number: `BOOT-${Date.now()}`,
+          customerName: "Consumidor final demo",
+          paymentType: "Efectivo",
+          items: [
+            {
+              type: "consultation",
+              medicineId: null,
+              name: "Consulta médica demo",
+              quantity: 1,
+              unitPrice: 50000,
+              total: 50000
+            },
+            {
+              type: "medicine",
+              medicineId: medicineRef.id,
+              name: "Arnica Montana 30CH",
+              quantity: 1,
+              unitPrice: 18000,
+              total: 18000
+            }
+          ],
+          subtotal: 68000,
+          total: 68000,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        batch.set(indicatorRef, {
+          label: "Indicador demo",
+          createdBy: user.uid,
+          createdAt: now
+        });
+
+        await batch.commit();
+
+        log("Datos de prueba creados.", {
+          medicineId: medicineRef.id,
+          appointmentId: appointmentRef.id,
+          patientId: patientRef.id,
+          invoiceId: invoiceRef.id
+        });
+
+        const extraUserRef = await addDoc(collection(db, "users"), {
+          email: "usuario.demo@ecoalfa.test",
+          displayName: "Usuario Demo sin Auth",
+          role: "asesor",
+          active: false,
+          note: "Perfil de prueba. No puede iniciar sesión porque Firebase Auth solo crea usuarios reales desde Authentication o Admin SDK.",
+          createdAt: now,
+          updatedAt: now
+        });
+
+        log("Perfil demo creado en users, no en Authentication.", { id: extraUserRef.id });
+      }
+    </script>
+  </body>
+</html>
