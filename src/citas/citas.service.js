@@ -139,3 +139,22 @@ export async function getDoctorsByRole() {
     ...doc.data()
   }));
 }
+
+export async function getTodayAppointmentsForDoctor(doctorId) {
+  const today = new Date().toISOString().split('T')[0];
+  const dateKey = today.replace(/-/g, '');
+  
+  const appointmentsQuery = query(
+    collection(db, "appointments"),
+    where("dateKey", "==", dateKey),
+    where("doctorId", "==", doctorId),
+    where("status", "in", ["Programada", "Confirmada", "En Sala de Espera"])
+  );
+  
+  const snapshot = await getDocs(appointmentsQuery);
+  
+  return snapshot.docs.map((appointmentDoc) => ({
+    id: appointmentDoc.id,
+    ...appointmentDoc.data()
+  })).sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+}
