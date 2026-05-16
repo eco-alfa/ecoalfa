@@ -3,7 +3,8 @@ import { getUserProfile } from "../firebase/db.js";
 
 let currentSession = {
   user: null,
-  profile: null
+  profile: null,
+  error: null
 };
 
 export function getSession() {
@@ -15,18 +16,28 @@ export function subscribeSession(callback) {
     if (!user) {
       currentSession = {
         user: null,
-        profile: null
+        profile: null,
+        error: null
       };
       callback(currentSession);
       return;
     }
 
-    const profile = await getUserProfile(user.uid);
+    try {
+      const profile = await getUserProfile(user.uid);
 
-    currentSession = {
-      user,
-      profile
-    };
+      currentSession = {
+        user,
+        profile,
+        error: null
+      };
+    } catch (error) {
+      currentSession = {
+        user,
+        profile: null,
+        error
+      };
+    }
 
     callback(currentSession);
   });

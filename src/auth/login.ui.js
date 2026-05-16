@@ -23,7 +23,7 @@ export function renderLogin(container) {
 
           <p id="login-error" class="hidden rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"></p>
 
-          <button class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="submit">
+          <button id="login-button" class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60" type="submit">
             Ingresar
           </button>
         </form>
@@ -33,10 +33,13 @@ export function renderLogin(container) {
 
   const form = document.querySelector("#login-form");
   const errorBox = document.querySelector("#login-error");
+  const loginButton = document.querySelector("#login-button");
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     errorBox.classList.add("hidden");
+    loginButton.disabled = true;
+    loginButton.textContent = "Ingresando...";
 
     const email = form.email.value.trim();
     const password = form.password.value;
@@ -44,8 +47,25 @@ export function renderLogin(container) {
     try {
       await loginWithEmail(email, password);
     } catch (error) {
-      errorBox.textContent = "No fue posible iniciar sesión. Verifica tus credenciales.";
+      errorBox.textContent = getLoginErrorMessage(error);
       errorBox.classList.remove("hidden");
+    } finally {
+      loginButton.disabled = false;
+      loginButton.textContent = "Ingresar";
     }
   });
+}
+
+function getLoginErrorMessage(error) {
+  const messages = {
+    "auth/invalid-email": "El correo no tiene un formato válido.",
+    "auth/invalid-credential": "Correo o contraseña incorrectos.",
+    "auth/user-not-found": "No existe un usuario con este correo en Firebase Authentication.",
+    "auth/wrong-password": "La contraseña es incorrecta.",
+    "auth/too-many-requests": "Demasiados intentos fallidos. Intenta nuevamente más tarde.",
+    "auth/operation-not-allowed": "El proveedor Email/Password no está habilitado en Firebase Authentication.",
+    "auth/network-request-failed": "No se pudo conectar con Firebase. Revisa internet, dominio autorizado o bloqueos del navegador."
+  };
+
+  return messages[error.code] || `No fue posible iniciar sesión. Código: ${error.code || "desconocido"}`;
 }

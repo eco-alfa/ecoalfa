@@ -48,3 +48,13 @@
 - El sistema usa `getDocs()` y consultas limitadas por defecto.
 - No usa listeners permanentes `onSnapshot()`.
 - Si Firestore solicita índices compuestos, créalos desde el enlace automático de la consola.
+
+## 6. Si el login no avanza en GitHub Pages
+
+- Verifica que Email/Password esté habilitado en Firebase Authentication.
+- Verifica que el usuario exista en Authentication y que estés usando la contraseña correcta.
+- Agrega el dominio de GitHub Pages en Authentication > Settings > Authorized domains.
+- Crea el documento `users/{uid}` en Firestore usando exactamente el UID del usuario autenticado.
+- El documento debe tener un `role` válido: `admin`, `medico`, `operador` o `asesor`.
+- El documento debe tener `active: true` como booleano, no como texto.
+- Publica `firestore.rules` después de cambiar reglas.
