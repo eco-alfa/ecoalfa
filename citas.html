@@ -319,8 +319,8 @@
 
       async function loadPortalData(user, patient) {
         const [appointments, invoices, records] = await Promise.all([
-          getMyAppointments(patient),
-          getMyInvoices(patient),
+          getMyAppointments(user),
+          getMyInvoices(user),
           getMyClinicalRecords(patient)
         ]);
 
@@ -393,13 +393,13 @@
         }
       }
 
-      async function getMyAppointments(patient) {
-        const snapshot = await getDocs(query(collection(db, "appointments"), where("documentNumber", "==", patient.documentNumber), limit(20)));
+      async function getMyAppointments(user) {
+        const snapshot = await getDocs(query(collection(db, "appointments"), where("authUid", "==", user.uid), limit(20)));
         return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
       }
 
-      async function getMyInvoices(patient) {
-        const snapshot = await getDocs(query(collection(db, "invoices"), where("patientDocument", "==", patient.documentNumber), limit(20)));
+      async function getMyInvoices(user) {
+        const snapshot = await getDocs(query(collection(db, "invoices"), where("authUid", "==", user.uid), limit(20)));
         return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
       }
 
