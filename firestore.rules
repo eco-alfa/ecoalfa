@@ -1,0 +1,87 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return signedIn() && userProfile().data.active == true ? userProfile().data.role : null;
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isMedico() {
+      return role() == 'medico';
+    }
+
+    function isOperador() {
+      return role() == 'operador';
+    }
+
+    function isAsesor() {
+      return role() == 'asesor';
+    }
+
+    function canReadIndicators() {
+      return isAdmin() || isAsesor();
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAdmin() || isMedico() || isOperador();
+      allow create, update: if isAdmin() || isMedico() || isOperador();
+      allow delete: if isAdmin();
+    }
+
+    match /patients/{patientId} {
+      allow read: if isAdmin() || isMedico();
+      allow create, update: if isAdmin() || isMedico();
+      allow delete: if isAdmin();
+
+      match /clinicalRecords/{recordId} {
+        allow read: if isAdmin() || isMedico();
+        allow create, update: if isAdmin() || isMedico();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /inventory/{medicineId} {
+      allow read: if isAdmin() || isOperador() || isAsesor();
+      allow create, update: if isAdmin() || isOperador();
+      allow delete: if isAdmin();
+
+      match /movements/{movementId} {
+        allow read: if isAdmin() || isOperador() || isAsesor();
+        allow create: if isAdmin() || isOperador();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isAdmin() || isOperador();
+      allow create: if isAdmin() || isOperador();
+      allow update, delete: if isAdmin();
+    }
+
+    match /indicators/{indicatorId} {
+      allow read: if canReadIndicators();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
