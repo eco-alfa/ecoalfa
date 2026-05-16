@@ -2,9 +2,9 @@ import {
   createClinicalRecord,
   getClinicalRecords,
   getPatientById,
-  getPatientsPage,
-  searchPatientsByDocument
 } from "./pacientes.service.js";
+import { getSession } from "../auth/session.js";
+import { getTodayAppointmentsForDoctor } from "../citas/citas.service.js";
 
 let currentPatients = [];
 let currentRecords = [];
@@ -81,7 +81,7 @@ function renderMainView() {
         <div class="flex min-h-screen items-center justify-center p-4">
           <div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-              <h3 class="text-xl font-bold text-slate-900">Buscar paciente</h3>
+              <h3 class="text-xl font-bold text-slate-900">Pacientes en sala de espera</h3>
               <button id="close-search-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -90,13 +90,13 @@ function renderMainView() {
             </div>
 
             <div class="mb-4 flex gap-2">
-              <input id="history-patient-search" placeholder="Buscar por nombre o documento" class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
-              <button id="history-search-patient" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Buscar</button>
-              <button id="history-refresh-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Todos</button>
+              <input id="history-patient-search" placeholder="Filtrar los pacientes en sala por nombre o documento" class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+              <button id="history-search-patient" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Filtrar</button>
+              <button id="history-refresh-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Actualizar</button>
             </div>
 
             <div id="history-patients-list" class="max-h-[400px] overflow-y-auto space-y-2">
-              <div class="p-6 text-sm text-slate-500 text-center">Haga clic en "Todos" para cargar pacientes.</div>
+              <div class="p-6 text-sm text-slate-500 text-center">Cargando pacientes en sala de espera asignados a usted...</div>
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -115,11 +115,14 @@ function renderMainView() {
                 <h3 class="text-xl font-bold text-slate-900">Registrar consulta médica</h3>
                 <p id="consultation-patient-name" class="text-sm text-slate-500 mt-1">Paciente: ${selectedPatient?.fullName || "No seleccionado"}</p>
               </div>
-              <button id="close-consultation-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button id="change-consultation-patient" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="button">Cambiar paciente</button>
+                <button id="close-consultation-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
@@ -265,6 +268,13 @@ function bindMainEvents(container) {
     closeConsultationModal(container);
   });
 
+  container.querySelector("#change-consultation-patient")?.addEventListener("click", async () => {
+    closeConsultationModal(container);
+    container.querySelector("#patient-search-modal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    await loadPatients(container, true);
+  });
+
   // Cerrar al hacer click fuera
   container.querySelector("#consultation-modal").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) {
@@ -309,21 +319,47 @@ async function loadPatients(container, reset) {
     lastVisiblePatient = null;
   }
 
-  list.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center"><div class="inline-flex items-center gap-2"><div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600"></div>Cargando pacientes...</div></div>`;
+  list.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center"><div class="inline-flex items-center gap-2"><div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600"></div>Cargando pacientes en sala de espera...</div></div>`;
 
   try {
-    const page = await getPatientsPage(lastVisiblePatient);
-    currentPatients = [...currentPatients, ...page.patients];
-    lastVisiblePatient = page.lastVisible;
-    canLoadMorePatients = page.hasMore;
+    const patients = await getWaitingRoomPatientsForCurrentDoctor();
+    currentPatients = patients;
+    lastVisiblePatient = null;
+    canLoadMorePatients = false;
 
-    list.innerHTML = currentPatients.length ? renderPatientCards(currentPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No hay pacientes disponibles.</div>`;
+    list.innerHTML = currentPatients.length ? renderPatientCards(currentPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No hay pacientes en sala de espera asignados a usted para hoy.</div>`;
     loadMoreButton.disabled = !canLoadMorePatients;
     loadMoreButton.classList.toggle("opacity-50", !canLoadMorePatients);
     bindPatientCards(container);
   } catch (error) {
-    list.innerHTML = `<div class="p-4 text-sm text-red-600 text-center">No fue posible cargar pacientes.</div>`;
+    console.error("[Historias] No fue posible cargar pacientes en sala de espera", error);
+    list.innerHTML = `<div class="p-4 text-sm text-red-600 text-center">No fue posible cargar pacientes en sala de espera. ${error.message || ""}</div>`;
   }
+}
+
+async function getWaitingRoomPatientsForCurrentDoctor() {
+  const session = getSession();
+  const doctorId = session.profile?.id || session.user?.uid;
+
+  if (!doctorId) {
+    throw new Error("No se encontró el médico autenticado.");
+  }
+
+  const appointments = await getTodayAppointmentsForDoctor(doctorId);
+  const waitingAppointments = appointments.filter((appointment) => appointment.status === "En Sala de Espera");
+  const uniquePatientIds = [...new Set(waitingAppointments.map((appointment) => appointment.patientId).filter(Boolean))];
+  const patients = await Promise.all(uniquePatientIds.map((patientId) => getPatientById(patientId)));
+
+  return patients
+    .filter(Boolean)
+    .map((patient) => {
+      const appointment = waitingAppointments.find((item) => item.patientId === patient.id);
+      return {
+        ...patient,
+        appointmentTime: appointment?.time || "",
+        appointmentId: appointment?.id || ""
+      };
+    });
 }
 
 async function searchPatients(container) {
@@ -336,12 +372,16 @@ async function searchPatients(container) {
     return;
   }
 
-  list.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center">Buscando paciente...</div>`;
-  currentPatients = await searchPatientsByDocument(term);
-  list.innerHTML = currentPatients.length ? renderPatientCards(currentPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No se encontraron pacientes.</div>`;
+  const normalizedTerm = term.trim().toLowerCase();
+  const filteredPatients = currentPatients.filter((patient) =>
+    String(patient.fullName || "").toLowerCase().includes(normalizedTerm) ||
+    String(patient.documentNumber || "").toLowerCase().includes(normalizedTerm)
+  );
+
+  list.innerHTML = filteredPatients.length ? renderPatientCards(filteredPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No se encontraron pacientes en sala con ese filtro.</div>`;
   loadMoreButton.disabled = true;
   loadMoreButton.classList.add("opacity-50");
-  bindPatientCards(container);
+  bindPatientCards(container, filteredPatients);
 }
 
 function renderPatientCards(patients) {
@@ -351,6 +391,7 @@ function renderPatientCards(patients) {
         <div>
           <strong class="block text-sm text-slate-900">${patient.fullName || "Sin nombre"}</strong>
           <span class="mt-1 block text-xs text-slate-500">${patient.documentNumber || "Sin documento"}</span>
+          <span class="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">En sala ${patient.appointmentTime ? `· ${patient.appointmentTime}` : ""}</span>
           <span class="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">${patient.phone || patient.email || "Sin contacto"}</span>
         </div>
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -361,14 +402,15 @@ function renderPatientCards(patients) {
   `).join("");
 }
 
-function bindPatientCards(container) {
+function bindPatientCards(container, patients = currentPatients) {
   container.querySelectorAll("[data-select-patient]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await selectPatient(container, button.dataset.selectPatient);
+      await selectPatient(container, button.dataset.selectPatient, patients);
       closeSearchModal(container);
-      // Actualizar UI principal
       container.innerHTML = renderMainView();
       bindMainEvents(container);
+      container.querySelector("#consultation-modal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
       await loadRecords(container, true);
     });
   });
@@ -391,8 +433,8 @@ async function selectStoredPatient(container) {
   }
 }
 
-async function selectPatient(container, patientId) {
-  selectedPatient = currentPatients.find((patient) => patient.id === patientId);
+async function selectPatient(container, patientId, patients = currentPatients) {
+  selectedPatient = patients.find((patient) => patient.id === patientId);
   currentRecords = [];
   lastVisibleRecord = null;
 }

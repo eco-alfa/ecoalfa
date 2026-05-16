@@ -120,12 +120,15 @@
                   ${inputField("middleName", "Segundo nombre", "text", false)}
                   ${inputField("firstLastName", "Primer apellido", "text", true)}
                   ${inputField("secondLastName", "Segundo apellido", "text", false)}
+                  ${inputField("email", "Correo electrónico", "email", true)}
                   ${inputField("phone", "Celular", "tel", true)}
                   ${selectField("gender", "Género", ["Hombre", "Mujer", "Otro", "Prefiero no decirlo"])}
                   ${inputField("customGender", "Si elegiste otro, escríbelo", "text", false)}
                   ${inputField("address", "Dirección", "text", true)}
                   ${inputField("neighborhood", "Barrio", "text", true)}
                   ${inputField("municipality", "Municipio", "text", true)}
+                  ${inputField("eps", "EPS", "text", false)}
+                  ${inputField("bloodType", "Grupo sanguíneo", "text", false)}
                   <div class="sm:col-span-2">
                     <p id="profile-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
                   </div>
@@ -139,6 +142,12 @@
           </main>
         `;
         initHeroCanvas();
+        if (pendingAuthUser?.email) {
+          const emailInput = document.querySelector("#email");
+          if (emailInput) {
+            emailInput.value = pendingAuthUser.email;
+          }
+        }
         
         document.querySelector("#complete-profile-form").addEventListener("submit", async (event) => {
           event.preventDefault();
@@ -279,6 +288,8 @@
               ${inputField("address", "Dirección", "text", true)}
               ${inputField("neighborhood", "Barrio", "text", true)}
               ${inputField("municipality", "Municipio", "text", true)}
+              ${inputField("eps", "EPS", "text", false)}
+              ${inputField("bloodType", "Grupo sanguíneo", "text", false)}
             </div>
             <p id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
             <button class="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white" type="submit">Crear mi usuario de paciente</button>
@@ -504,7 +515,7 @@
       async function createPatientProfile(uid, form) {
         const documentNumber = form.documentNumber.value.trim();
         const fullName = [form.firstName.value, form.middleName.value, form.firstLastName.value, form.secondLastName.value].filter(Boolean).join(" ");
-        const email = form.email.value.trim().toLowerCase();
+        const email = (form.email?.value || pendingAuthUser?.email || auth.currentUser?.email || "").trim().toLowerCase();
         
         const existingPatient = await findPatientByDocument(documentNumber);
         
@@ -527,6 +538,8 @@
             authUid: uid,
             email,
             phone: form.phone.value.trim(),
+            eps: form.eps?.value.trim() || "",
+            bloodType: form.bloodType?.value.trim() || "",
             source: "linked",
             linkedAt: serverTimestamp(),
             updatedAt: serverTimestamp()
@@ -556,6 +569,8 @@
           municipality: form.municipality.value.trim(),
           gender: form.gender.value,
           customGender: form.customGender.value.trim(),
+          eps: form.eps?.value.trim() || "",
+          bloodType: form.bloodType?.value.trim() || "",
           source: "patient_portal",
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -599,6 +614,26 @@
           if (data.authUid === user.uid) {
             console.log("Perfil encontrado via query:", docSnap.id);
             return { id: docSnap.id, ...data };
+          }
+        }
+
+        if (user.email) {
+          debugPortal("Consultando paciente por email para recuperar vínculo", { email: user.email });
+          const emailQuery = query(collection(db, "patients"), where("email", "==", user.email.trim().toLowerCase()), limit(1));
+          const emailSnapshot = await getDocs(emailQuery);
+          debugPortal("Resultado consulta por email", { empty: emailSnapshot.empty, size: emailSnapshot.size });
+          if (!emailSnapshot.empty) {
+            const docSnap = emailSnapshot.docs[0];
+            const data = docSnap.data();
+            if (!data.authUid || data.authUid === user.uid) {
+              await setDoc(doc(db, "patients", docSnap.id), {
+                authUid: user.uid,
+                linkedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              }, { merge: true });
+              debugPortal("Paciente vinculado automáticamente por email", { patientId: docSnap.id });
+              return { id: docSnap.id, ...data, authUid: user.uid };
+            }
           }
         }
         
