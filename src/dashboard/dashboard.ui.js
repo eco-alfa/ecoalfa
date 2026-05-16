@@ -8,6 +8,7 @@ export async function renderDashboardModule(container) {
 
   try {
     const role = getSession().profile?.role;
+    console.log("[Dashboard UI] Renderizando dashboard", { role });
     const kpis = await getDashboardKpis(role);
     const isMobile = detectMobileDevice();
     container.innerHTML = renderDashboard(kpis, isMobile);
@@ -15,10 +16,20 @@ export async function renderDashboardModule(container) {
       renderIncomeChart(kpis.incomeByDay);
     }
   } catch (error) {
+    console.error("[Dashboard UI] No fue posible cargar el dashboard", {
+      code: error.code,
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     container.innerHTML = `
       <section class="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
         <h2 class="text-2xl font-bold text-slate-900">No fue posible cargar el dashboard</h2>
         <p class="mt-2 text-slate-500">Verifica permisos, índices de Firestore o datos iniciales.</p>
+        <div class="mx-auto mt-4 max-w-2xl rounded-xl bg-red-50 p-4 text-left text-sm text-red-700">
+          <p><strong>Código:</strong> ${error.code || "sin-código"}</p>
+          <p class="mt-1"><strong>Detalle:</strong> ${error.message || "Sin detalle disponible"}</p>
+        </div>
       </section>
     `;
   }

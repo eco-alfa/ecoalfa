@@ -10,16 +10,38 @@ import { ROLES } from "../auth/roles.js";
 import { db } from "../firebase/config.js";
 
 const KPI_LIMIT = 50;
+const DEBUG_DASHBOARD = true;
+
+function debugDashboard(label, data = null) {
+  if (!DEBUG_DASHBOARD) return;
+  if (data instanceof Error) {
+    console.error(`[Dashboard] ${label}`, {
+      code: data.code,
+      message: data.message,
+      name: data.name,
+      stack: data.stack
+    });
+    return;
+  }
+  console.log(`[Dashboard] ${label}`, data ?? "");
+}
 
 export async function getDashboardKpis(role) {
+  debugDashboard("Iniciando carga de KPIs", { role });
   let inventory = { lowStock: [] };
   try {
+    debugDashboard("Cargando inventario");
     inventory = await getInventorySnapshot();
+    debugDashboard("Inventario cargado", { lowStock: inventory.lowStock.length });
   } catch (error) {
     console.warn("No se pudo cargar inventario:", error.message);
+    debugDashboard("Error cargando inventario", error);
   }
 
-  if (role !== ROLES.ADMIN) {
+  const canSeeOperationalDashboard = [ROLES.ADMIN, ROLES.MEDICO, ROLES.OPERADOR].includes(role);
+
+  if (!canSeeOperationalDashboard) {
+    debugDashboard("Vista limitada para rol no admin", { role });
     return {
       dailyIncome: 0,
       monthlyIncome: 0,
@@ -32,11 +54,9 @@ export async function getDashboardKpis(role) {
     };
   }
 
-  const [invoices, attendedAppointments, pendingAppointments] = await Promise.all([
-    getRecentInvoices(),
-    getAttendedAppointments(),
-    getPendingAppointmentsToday()
-  ]);
+  const invoices = await safeDashboardLoad("facturas recientes", getRecentInvoices, []);
+  const attendedAppointments = await safeDashboardLoad("citas atendidas", getAttendedAppointments, []);
+  const pendingAppointments = await safeDashboardLoad("citas pendientes de hoy", getPendingAppointmentsToday, []);
 
   return {
     dailyIncome: sumInvoicesByDate(invoices, getTodayKey()),
@@ -48,6 +68,18 @@ export async function getDashboardKpis(role) {
     pendingAppointments,
     limited: false
   };
+}
+
+async function safeDashboardLoad(label, loader, fallback) {
+  try {
+    debugDashboard(`Cargando ${label}`);
+    const result = await loader();
+    debugDashboard(`${label} cargado`, { total: Array.isArray(result) ? result.length : null });
+    return result;
+  } catch (error) {
+    debugDashboard(`Error cargando ${label}`, error);
+    return fallback;
+  }
 }
 
 async function getRecentInvoices() {
@@ -80,19 +112,41 @@ async function getAttendedAppointments() {
 
 async function getPendingAppointmentsToday() {
   const today = getTodayKey();
+  const todayKey = today.replace(/-/g, "");
+  const statuses = ["Programada", "Confirmada", "En espera", "En Sala de Espera"];
+
+  try {
+    const appointmentsByDateKeyQuery = query(
+      collection(db, "appointments"),
+      where("dateKey", "==", todayKey),
+      where("status", "in", statuses),
+      limit(20)
+    );
+    const dateKeySnapshot = await getDocs(appointmentsByDateKeyQuery);
+    return dateKeySnapshot.docs
+      .map((appointmentDoc) => ({
+        id: appointmentDoc.id,
+        ...appointmentDoc.data()
+      }))
+      .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+  } catch (error) {
+    debugDashboard("No se pudo consultar citas por dateKey, intentando por date", error);
+  }
+
   const appointmentsQuery = query(
     collection(db, "appointments"),
     where("date", "==", today),
-    where("status", "in", ["Programada", "Confirmada", "En espera"]),
-    orderBy("time", "asc"),
+    where("status", "in", statuses),
     limit(20)
   );
   const snapshot = await getDocs(appointmentsQuery);
 
-  return snapshot.docs.map((appointmentDoc) => ({
-    id: appointmentDoc.id,
-    ...appointmentDoc.data()
-  }));
+  return snapshot.docs
+    .map((appointmentDoc) => ({
+      id: appointmentDoc.id,
+      ...appointmentDoc.data()
+    }))
+    .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
 }
 
 async function getInventorySnapshot() {

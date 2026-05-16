@@ -52,8 +52,24 @@
       let currentPatient = null;
       let doctors = [];
       let pendingAuthUser = null;
+      const DEBUG_PORTAL = true;
+
+      function debugPortal(label, data = null) {
+        if (!DEBUG_PORTAL) return;
+        if (data instanceof Error) {
+          console.error(`[Portal Paciente] ${label}`, {
+            code: data.code,
+            message: data.message,
+            name: data.name,
+            stack: data.stack
+          });
+          return;
+        }
+        console.log(`[Portal Paciente] ${label}`, data ?? "");
+      }
 
       onAuthStateChanged(auth, async (user) => {
+        debugPortal("Cambio de autenticación", user ? { uid: user.uid, email: user.email } : "sin usuario");
         if (!user) {
           renderAuth();
           return;
@@ -62,12 +78,17 @@
         renderLoading();
 
         try {
+          debugPortal("Buscando perfil de paciente");
           currentPatient = await getPatientByAuthUser(user);
-          doctors = await getDoctors();
+          debugPortal("Perfil cargado", { patientId: currentPatient.id, authUid: currentPatient.authUid });
+          debugPortal("Cargando médicos");
+          doctors = await safeGetDoctors();
+          debugPortal("Médicos cargados", { total: doctors.length });
           renderPortal(user, currentPatient);
           await loadPortalData(user, currentPatient);
         } catch (error) {
           console.error("No fue posible cargar el portal del paciente", error);
+          debugPortal("Fallo crítico cargando portal", error);
           pendingAuthUser = user;
           renderCompleteProfile("Tu usuario existe, pero aún no tiene perfil de paciente asociado. Completa tus datos para continuar.");
         }
@@ -435,20 +456,46 @@
       }
 
       async function loadPortalData(user, patient) {
-        const [appointments, invoices, records] = await Promise.all([
-          getMyAppointments(user),
-          getMyInvoices(user),
-          getMyClinicalRecords(patient)
-        ]);
+        debugPortal("Iniciando carga de datos del portal", { uid: user.uid, patientId: patient.id });
 
-        document.querySelector("#appointments-panel-content").innerHTML = renderAppointments(appointments);
-        document.querySelector("#invoices-panel-content").innerHTML = renderInvoices(invoices);
-        document.querySelector("#records-panel-content").innerHTML = renderRecords(records);
+        await loadPanelData("appointments", "#appointments-panel-content", () => getMyAppointments(user), renderAppointments);
+        await loadPanelData("invoices", "#invoices-panel-content", () => getMyInvoices(user), renderInvoices);
+        await loadPanelData("clinicalRecords", "#records-panel-content", () => getMyClinicalRecords(patient), renderRecords);
+      }
+
+      async function loadPanelData(name, selector, loader, renderer) {
+        const panel = document.querySelector(selector);
+        try {
+          debugPortal(`Cargando sección ${name}`);
+          const items = await loader();
+          debugPortal(`Sección ${name} cargada`, { total: items.length });
+          if (panel) {
+            panel.innerHTML = renderer(items);
+          }
+        } catch (error) {
+          debugPortal(`Error cargando sección ${name}`, error);
+          if (panel) {
+            panel.innerHTML = renderPanelError(name, error);
+          }
+        }
+      }
+
+      function renderPanelError(name, error) {
+        return `
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+            <strong>No fue posible cargar esta sección.</strong>
+            <p class="mt-1">Sección: ${name}</p>
+            <p class="mt-1">Código: ${error.code || "sin-código"}</p>
+            <p class="mt-1">Detalle: ${error.message || "Sin detalle"}</p>
+          </div>
+        `;
       }
 
       async function findPatientByDocument(documentNumber) {
+        debugPortal("Consultando paciente por documento", { documentNumber: documentNumber.trim() });
         const q = query(collection(db, "patients"), where("documentNumber", "==", documentNumber.trim()), limit(1));
         const snapshot = await getDocs(q);
+        debugPortal("Resultado paciente por documento", { empty: snapshot.empty, size: snapshot.size });
         if (snapshot.empty) return null;
         const doc = snapshot.docs[0];
         return { id: doc.id, ...doc.data() };
@@ -516,6 +563,7 @@
       }
 
       async function getPatientByAuthUser(user, attempt = 1) {
+        debugPortal("Leyendo paciente directo por UID", { uid: user.uid, attempt });
         const patientSnap = await getDoc(doc(db, "patients", user.uid));
         if (patientSnap.exists()) {
           const data = patientSnap.data();
@@ -541,8 +589,10 @@
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        debugPortal("Consultando paciente por authUid", { uid: user.uid, attempt });
         const q = query(collection(db, "patients"), where("authUid", "==", user.uid), limit(1));
         const snapshot = await getDocs(q);
+        debugPortal("Resultado consulta por authUid", { empty: snapshot.empty, size: snapshot.size });
         if (!snapshot.empty) {
           const docSnap = snapshot.docs[0];
           const data = docSnap.data();
@@ -562,13 +612,24 @@
       }
 
       async function getDoctors() {
+        debugPortal("Consulta Firestore doctors ordenada por fullName");
         const snapshot = await getDocs(query(collection(db, "doctors"), orderBy("fullName"), limit(50)));
         return snapshot.docs.map((doctor) => ({ id: doctor.id, ...doctor.data() })).filter((doctor) => doctor.active !== false);
+      }
+
+      async function safeGetDoctors() {
+        try {
+          return await getDoctors();
+        } catch (error) {
+          debugPortal("No se pudieron cargar médicos; se continuará sin preferencia", error);
+          return [];
+        }
       }
 
       async function requestAppointment(user, patient, form) {
         const selectedDoctor = doctors.find((doctor) => doctor.id === form.doctorId.value);
         try {
+          debugPortal("Creando solicitud de cita", { uid: user.uid, patientId: patient.id, doctorId: form.doctorId.value });
           await addDoc(collection(db, "publicAppointmentRequests"), {
             patientId: patient.id,
             authUid: user.uid,
@@ -596,16 +657,19 @@
       }
 
       async function getMyAppointments(user) {
+        debugPortal("Consulta Firestore appointments por authUid", { uid: user.uid });
         const snapshot = await getDocs(query(collection(db, "appointments"), where("authUid", "==", user.uid), limit(20)));
         return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
       }
 
       async function getMyInvoices(user) {
+        debugPortal("Consulta Firestore invoices por authUid", { uid: user.uid });
         const snapshot = await getDocs(query(collection(db, "invoices"), where("authUid", "==", user.uid), limit(20)));
         return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
       }
 
       async function getMyClinicalRecords(patient) {
+        debugPortal("Consulta Firestore historia clínica", { patientId: patient.id });
         const snapshot = await getDocs(query(collection(db, "patients", patient.id, "clinicalRecords"), orderBy("createdAt", "desc"), limit(20)));
         return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
       }
