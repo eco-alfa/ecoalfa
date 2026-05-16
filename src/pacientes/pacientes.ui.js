@@ -12,83 +12,216 @@ let lastVisiblePatient = null;
 let canLoadMorePatients = false;
 
 export async function renderPacientesModule(container) {
-  container.innerHTML = renderShell();
-  bindPatientEvents(container);
-  await loadPatients(container, true);
+  container.innerHTML = renderMainView();
+  bindMainEvents(container);
 }
 
-function renderShell() {
+function renderMainView() {
   return `
     <section class="space-y-6">
       <div>
         <h2 class="text-2xl font-bold text-slate-900">Pacientes</h2>
-        <p class="text-slate-500">Base administrativa conectada con los pacientes que se registran desde el portal de citas.</p>
+        <p class="text-slate-500">Gestión de pacientes y base de datos administrativa.</p>
       </div>
 
-      <div class="grid gap-6 2xl:grid-cols-[420px_1fr]">
-        <div class="space-y-6">
-          <form id="patient-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h3 class="text-lg font-semibold text-slate-900">Ficha del paciente</h3>
-            <p class="mt-1 text-sm text-slate-500">Datos de identificación, contacto y vínculo con el portal.</p>
-            <input id="patient-id" type="hidden" />
-            <div class="mt-5 space-y-4">
-              ${renderInput("fullName", "Nombre completo", "text", true)}
-              ${renderInput("documentNumber", "Documento", "text", true)}
-              ${renderInput("phone", "Teléfono", "tel", false)}
-              ${renderInput("email", "Correo", "email", false)}
-              ${renderInput("birthDate", "Fecha de nacimiento", "date", false)}
+      <div class="grid gap-6 md:grid-cols-2">
+        <button id="open-patient-form" class="group rounded-2xl bg-blue-600 p-8 text-left text-white shadow-lg transition hover:bg-blue-700 hover:shadow-xl">
+          <div class="flex items-center gap-4">
+            <div class="rounded-xl bg-white/20 p-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold">Ficha del paciente</h3>
+              <p class="mt-1 text-sm text-blue-100">Crear o editar ficha de paciente con datos completos.</p>
+            </div>
+          </div>
+        </button>
+
+        <button id="open-patient-database" class="group rounded-2xl bg-slate-700 p-8 text-left text-white shadow-lg transition hover:bg-slate-800 hover:shadow-xl">
+          <div class="flex items-center gap-4">
+            <div class="rounded-xl bg-white/20 p-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold">Base de pacientes</h3>
+              <p class="mt-1 text-sm text-slate-300">Buscar, ver y gestionar pacientes existentes.</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <article class="rounded-2xl bg-blue-50 p-5 text-blue-950 ring-1 ring-blue-100">
+          <p class="text-sm font-medium text-blue-700">Origen</p>
+          <strong class="mt-2 block text-2xl">Portal conectado</strong>
+          <p class="mt-2 text-sm">Los pacientes inscritos desde citas quedan disponibles en esta base.</p>
+        </article>
+        <article class="rounded-2xl bg-sky-50 p-5 text-sky-950 ring-1 ring-sky-100">
+          <p class="text-sm font-medium text-sky-700">Gestión</p>
+          <strong class="mt-2 block text-2xl">Datos civiles</strong>
+          <p class="mt-2 text-sm">Identificación, contacto, correo, fecha de nacimiento y dirección.</p>
+        </article>
+        <article class="rounded-2xl bg-lime-50 p-5 text-lime-950 ring-1 ring-lime-100">
+          <p class="text-sm font-medium text-lime-700">Atención</p>
+          <strong class="mt-2 block text-2xl">Historia aparte</strong>
+          <p class="mt-2 text-sm">La atención médica se registra en el módulo Historias clínicas.</p>
+        </article>
+      </div>
+
+      <!-- Modal Ficha del Paciente -->
+      <div id="patient-form-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm">
+        <div class="flex min-h-screen items-center justify-center p-4">
+          <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
+              <h3 class="text-xl font-bold text-slate-900">Ficha del paciente</h3>
+              <button id="close-form-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form id="patient-form" class="space-y-4">
+              <input id="patient-id" type="hidden" />
+              
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="firstName">Primer nombre *</label>
+                  <input id="firstName" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="middleName">Segundo nombre</label>
+                  <input id="middleName" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="firstLastName">Primer apellido *</label>
+                  <input id="firstLastName" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="secondLastName">Segundo apellido</label>
+                  <input id="secondLastName" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="documentType">Tipo de documento *</label>
+                  <select id="documentType" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                    <option value="CC">Cédula de Ciudadanía (CC)</option>
+                    <option value="CE">Cédula de Extranjería (CE)</option>
+                    <option value="TI">Tarjeta de Identidad (TI)</option>
+                    <option value="PP">Pasaporte (PP)</option>
+                    <option value="RC">Registro Civil (RC)</option>
+                    <option value="NUIP">NUIP</option>
+                    <option value="PEP">Permiso Especial (PEP)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="documentNumber">Número de documento *</label>
+                  <input id="documentNumber" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="birthDate">Fecha de nacimiento</label>
+                  <input id="birthDate" type="date" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="phone">Teléfono</label>
+                  <input id="phone" type="tel" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Correo electrónico</label>
+                <input id="email" type="email" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              </div>
+
               <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700" for="address">Dirección</label>
-                <textarea id="address" rows="2" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"></textarea>
+                <input id="address" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
               </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="neighborhood">Barrio</label>
+                  <input id="neighborhood" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="municipality">Municipio</label>
+                  <input id="municipality" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Género</label>
+                <div class="flex gap-4">
+                  <label class="flex items-center gap-2">
+                    <input type="radio" name="gender" value="male" class="text-blue-600 focus:ring-blue-500" />
+                    <span class="text-sm text-slate-700">Masculino</span>
+                  </label>
+                  <label class="flex items-center gap-2">
+                    <input type="radio" name="gender" value="female" class="text-blue-600 focus:ring-blue-500" />
+                    <span class="text-sm text-slate-700">Femenino</span>
+                  </label>
+                  <label class="flex items-center gap-2">
+                    <input type="radio" name="gender" value="other" class="text-blue-600 focus:ring-blue-500" />
+                    <span class="text-sm text-slate-700">Otro</span>
+                  </label>
+                </div>
+                <input id="customGender" placeholder="Especifique (opcional)" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              </div>
+
               <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700" for="background">Notas administrativas</label>
                 <textarea id="background" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"></textarea>
               </div>
+
               <p id="patients-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
-              <div class="grid gap-3 sm:grid-cols-2">
-                <button class="rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800" type="submit">Guardar paciente</button>
+
+              <div class="flex gap-3 pt-4 border-t border-slate-200">
+                <button class="flex-1 rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800" type="submit">Guardar paciente</button>
                 <button id="clear-patient-form" class="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-50" type="button">Limpiar</button>
               </div>
-            </div>
-          </form>
-        </div>
-
-        <div class="space-y-6">
-          <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex flex-col justify-between gap-3 border-b border-slate-200 p-5 lg:flex-row lg:items-center">
-              <div>
-                <h3 class="text-lg font-semibold text-slate-900">Base de pacientes</h3>
-                <p class="text-sm text-slate-500">Listado paginado de máximo 15 pacientes por carga.</p>
-              </div>
-              <div class="flex gap-2">
-                <input id="patient-search" placeholder="Buscar documento" class="w-44 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
-                <button id="search-patient" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Buscar</button>
-                <button id="refresh-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Todos</button>
-              </div>
-            </div>
-            <div id="patients-table" class="overflow-x-auto"></div>
-            <div class="border-t border-slate-200 p-4 text-right">
-              <button id="load-more-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cargar más</button>
-            </div>
+            </form>
           </div>
+        </div>
+      </div>
 
-          <div class="grid gap-4 md:grid-cols-3">
-            <article class="rounded-2xl bg-blue-50 p-5 text-blue-950 ring-1 ring-blue-100">
-              <p class="text-sm font-medium text-blue-700">Origen</p>
-              <strong class="mt-2 block text-2xl">Portal conectado</strong>
-              <p class="mt-2 text-sm">Los pacientes inscritos desde citas quedan disponibles en esta base.</p>
-            </article>
-            <article class="rounded-2xl bg-sky-50 p-5 text-sky-950 ring-1 ring-sky-100">
-              <p class="text-sm font-medium text-sky-700">Gestión</p>
-              <strong class="mt-2 block text-2xl">Datos civiles</strong>
-              <p class="mt-2 text-sm">Identificación, contacto, correo, fecha de nacimiento y dirección.</p>
-            </article>
-            <article class="rounded-2xl bg-lime-50 p-5 text-lime-950 ring-1 ring-lime-100">
-              <p class="text-sm font-medium text-lime-700">Atención</p>
-              <strong class="mt-2 block text-2xl">Historia aparte</strong>
-              <p class="mt-2 text-sm">La atención médica se registra en el módulo Historias clínicas.</p>
-            </article>
+      <!-- Modal Base de Pacientes -->
+      <div id="patient-database-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm">
+        <div class="flex min-h-screen items-center justify-center p-4">
+          <div class="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
+              <h3 class="text-xl font-bold text-slate-900">Base de pacientes</h3>
+              <button id="close-database-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="mb-4 flex gap-2">
+              <input id="patient-search" placeholder="Buscar por nombre o documento" class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              <button id="search-patient" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Buscar</button>
+              <button id="refresh-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Todos</button>
+            </div>
+
+            <div id="patients-table" class="overflow-x-auto rounded-xl border border-slate-200">
+              <div class="p-6 text-sm text-slate-500">Haga clic en "Todos" para cargar la base de pacientes.</div>
+            </div>
+
+            <div class="mt-4 flex justify-end">
+              <button id="load-more-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" disabled>Cargar más</button>
+            </div>
           </div>
         </div>
       </div>
@@ -96,32 +229,74 @@ function renderShell() {
   `;
 }
 
-function renderInput(id, label, type, required) {
-  return `
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="${id}">${label}</label>
-      <input id="${id}" type="${type}" ${required ? "required" : ""} class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
-    </div>
-  `;
-}
+function bindMainEvents(container) {
+  // Abrir modal de ficha
+  container.querySelector("#open-patient-form").addEventListener("click", () => {
+    container.querySelector("#patient-form-modal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  });
 
-function bindPatientEvents(container) {
+  // Cerrar modal de ficha
+  container.querySelector("#close-form-modal").addEventListener("click", () => {
+    container.querySelector("#patient-form-modal").classList.add("hidden");
+    document.body.style.overflow = "";
+  });
+
+  // Cerrar modal al hacer click fuera
+  container.querySelector("#patient-form-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) {
+      container.querySelector("#patient-form-modal").classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+  });
+
+  // Abrir modal de base de pacientes
+  container.querySelector("#open-patient-database").addEventListener("click", () => {
+    container.querySelector("#patient-database-modal").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    loadPatients(container, true);
+  });
+
+  // Cerrar modal de base
+  container.querySelector("#close-database-modal").addEventListener("click", () => {
+    container.querySelector("#patient-database-modal").classList.add("hidden");
+    document.body.style.overflow = "";
+  });
+
+  // Cerrar modal al hacer click fuera
+  container.querySelector("#patient-database-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) {
+      container.querySelector("#patient-database-modal").classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+  });
+
+  // Formulario
   container.querySelector("#patient-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     await savePatient(container, event.currentTarget);
   });
 
   container.querySelector("#clear-patient-form").addEventListener("click", () => resetPatientForm(container));
+
+  // Búsqueda y paginación en modal
   container.querySelector("#refresh-patients").addEventListener("click", async () => loadPatients(container, true));
   container.querySelector("#load-more-patients").addEventListener("click", async () => loadPatients(container, false));
   container.querySelector("#search-patient").addEventListener("click", async () => searchPatients(container));
+
+  // Enter en búsqueda
+  container.querySelector("#patient-search").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      searchPatients(container);
+    }
+  });
 }
 
 async function loadPatients(container, reset) {
   const table = container.querySelector("#patients-table");
   const loadMoreButton = container.querySelector("#load-more-patients");
 
-  table.innerHTML = `<div class="p-6 text-sm text-slate-500">Cargando pacientes...</div>`;
+  table.innerHTML = `<div class="p-6 text-sm text-slate-500"><div class="flex items-center gap-2"><div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600"></div>Cargando pacientes...</div></div>`;
 
   if (reset) {
     currentPatients = [];
@@ -218,7 +393,12 @@ function getSourceBadge(source) {
 
 function bindPatientsTableEvents(container) {
   container.querySelectorAll("[data-edit-patient]").forEach((button) => {
-    button.addEventListener("click", () => fillPatientForm(container, button.dataset.editPatient));
+    button.addEventListener("click", () => {
+      fillPatientForm(container, button.dataset.editPatient);
+      // Cerrar modal de base y abrir modal de formulario
+      container.querySelector("#patient-database-modal").classList.add("hidden");
+      container.querySelector("#patient-form-modal").classList.remove("hidden");
+    });
   });
 
   container.querySelectorAll("[data-open-history]").forEach((link) => {
@@ -289,33 +469,78 @@ async function linkPatientToPortal(container, patientId) {
 
 function fillPatientForm(container, patientId) {
   const patient = currentPatients.find((item) => item.id === patientId);
+  if (!patient) return;
+  
   const form = container.querySelector("#patient-form");
 
   form.querySelector("#patient-id").value = patient.id;
-  form.fullName.value = patient.fullName || "";
+  
+  // Separar nombre completo en partes (mejor aproximación)
+  const nameParts = (patient.fullName || "").split(" ");
+  form.firstName.value = nameParts[0] || "";
+  form.middleName.value = nameParts[1] || "";
+  form.firstLastName.value = nameParts[2] || "";
+  form.secondLastName.value = nameParts[3] || "";
+  
+  form.documentType.value = patient.documentType || "CC";
   form.documentNumber.value = patient.documentNumber || "";
   form.phone.value = patient.phone || "";
   form.email.value = patient.email || "";
   form.birthDate.value = patient.birthDate || "";
   form.address.value = patient.address || "";
+  form.neighborhood.value = patient.neighborhood || "";
+  form.municipality.value = patient.municipality || "";
   form.background.value = patient.background || "";
+  
+  // Género
+  if (patient.gender) {
+    const genderRadio = form.querySelector(`[name="gender"][value="${patient.gender}"]`);
+    if (genderRadio) genderRadio.checked = true;
+    if (patient.gender === "other" && patient.customGender) {
+      form.customGender.value = patient.customGender;
+    }
+  }
 }
 
 async function savePatient(container, form) {
   try {
+    // Construir nombre completo
+    const fullName = [
+      form.firstName.value,
+      form.middleName.value,
+      form.firstLastName.value,
+      form.secondLastName.value
+    ].filter(Boolean).join(" ");
+
+    const gender = form.querySelector('[name="gender"]:checked')?.value || "";
+
     const patientId = await upsertPatient(form.querySelector("#patient-id").value, {
-      fullName: form.fullName.value,
+      firstName: form.firstName.value,
+      middleName: form.middleName.value,
+      firstLastName: form.firstLastName.value,
+      secondLastName: form.secondLastName.value,
+      fullName: fullName,
+      documentType: form.documentType.value,
       documentNumber: form.documentNumber.value,
       phone: form.phone.value,
       email: form.email.value,
       birthDate: form.birthDate.value,
       address: form.address.value,
-      background: form.background.value
+      neighborhood: form.neighborhood.value,
+      municipality: form.municipality.value,
+      gender: gender,
+      customGender: form.customGender.value,
+      background: form.background.value,
+      source: "manual"
     });
 
     resetPatientForm(container);
-    await loadPatients(container, true);
     showMessage(container, "Paciente guardado correctamente.", "success");
+    
+    // Si estábamos en el modal de base, recargar
+    if (!container.querySelector("#patient-database-modal").classList.contains("hidden")) {
+      await loadPatients(container, true);
+    }
 
   } catch (error) {
     showMessage(container, "No fue posible guardar el paciente. Verifica permisos y datos.", "error");
@@ -324,7 +549,6 @@ async function savePatient(container, form) {
 
 function resetPatientForm(container) {
   const form = container.querySelector("#patient-form");
-
   form.reset();
   form.querySelector("#patient-id").value = "";
 }
@@ -335,4 +559,10 @@ function showMessage(container, message, type) {
 
   messageBox.className = `rounded-xl px-4 py-3 text-sm ${classes}`;
   messageBox.textContent = message;
+  messageBox.classList.remove("hidden");
+  
+  // Auto-ocultar después de 3 segundos
+  setTimeout(() => {
+    messageBox.classList.add("hidden");
+  }, 3000);
 }
