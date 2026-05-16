@@ -267,17 +267,38 @@ function renderClinicalPanel(container) {
     </div>
 
     <form id="clinical-record-form" class="mb-6 rounded-2xl bg-slate-50 p-5">
-      <h4 class="font-semibold text-slate-900">Nueva consulta</h4>
+      <h4 class="font-semibold text-slate-900">Nueva visita / evolución clínica</h4>
+      <p class="mt-1 text-sm text-slate-500">Cada guardado crea una visita independiente en la línea de tiempo del paciente.</p>
+      <div class="mt-4 grid gap-4 lg:grid-cols-3">
+        ${renderInput("record-consultationDate", "Fecha de consulta", "date", true)}
+        ${renderInput("record-doctorName", "Profesional tratante", "text", false)}
+        ${renderInput("record-cie10", "CIE-10", "text", false)}
+      </div>
       <div class="mt-4 grid gap-4 lg:grid-cols-2">
-        ${renderTextarea("record-reason", "Motivo", true)}
+        ${renderTextarea("record-reason", "Motivo de consulta", true)}
         ${renderTextarea("record-currentIllness", "Enfermedad actual", true)}
+        ${renderTextarea("record-personalHistory", "Antecedentes personales", false)}
+        ${renderTextarea("record-familyHistory", "Antecedentes familiares", false)}
+        ${renderTextarea("record-pharmacologicalHistory", "Medicamentos actuales", false)}
+        ${renderTextarea("record-allergies", "Alergias", false)}
+      </div>
+      <div class="mt-4 grid gap-4 lg:grid-cols-4">
+        ${renderInput("record-bloodPressure", "TA", "text", false)}
+        ${renderInput("record-heartRate", "FC", "text", false)}
+        ${renderInput("record-temperature", "Temperatura", "text", false)}
+        ${renderInput("record-weight", "Peso", "text", false)}
+      </div>
+      <div class="mt-4 grid gap-4 lg:grid-cols-2">
         ${renderTextarea("record-systemsReview", "Revisión por sistemas", false)}
-        ${renderTextarea("record-diagnosis", "Diagnóstico", true)}
+        ${renderTextarea("record-physicalExam", "Examen físico", false)}
+        ${renderTextarea("record-diagnosis", "Diagnóstico / impresión diagnóstica", true)}
+        ${renderTextarea("record-treatmentPlan", "Plan de manejo", false)}
       </div>
-      <div class="mt-4">
-        ${renderTextarea("record-prescription", "Prescripción / Fórmula médica", true)}
+      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+        ${renderTextarea("record-prescription", "Prescripción / fórmula médica", true)}
+        ${renderTextarea("record-recommendations", "Recomendaciones y signos de alarma", false)}
       </div>
-      <button class="mt-4 rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="submit">Guardar consulta</button>
+      <button class="mt-4 rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="submit">Guardar visita clínica</button>
     </form>
 
     <div id="clinical-records-list" class="space-y-4"></div>
@@ -324,6 +345,7 @@ async function loadRecords(container, reset) {
     list.innerHTML = renderRecordsList(currentRecords);
     loadMoreButton.disabled = !canLoadMoreRecords;
     loadMoreButton.classList.toggle("opacity-50", !canLoadMoreRecords);
+    bindRecordPdfButtons();
   } catch (error) {
     list.innerHTML = `<div class="text-sm text-red-600">No fue posible cargar la historia clínica.</div>`;
   }
@@ -337,14 +359,20 @@ function renderRecordsList(records) {
   return records.map((record) => `
     <article class="rounded-2xl border border-slate-200 p-5">
       <div class="mb-3 flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
-        <h4 class="font-semibold text-slate-900">${record.diagnosis || "Consulta médica"}</h4>
-        <span class="text-xs text-slate-400">${formatDate(record.createdAt)}</span>
+        <div>
+          <h4 class="font-semibold text-slate-900">Visita: ${record.consultationDate || formatDate(record.createdAt)}</h4>
+          <p class="text-xs text-slate-500">${record.doctorName || "Profesional no especificado"} · ${record.diagnosis || "Consulta médica"}</p>
+        </div>
+        <button data-print-record="${record.id}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">PDF</button>
       </div>
       <dl class="grid gap-3 text-sm lg:grid-cols-2">
         ${renderRecordField("Motivo", record.reason)}
         ${renderRecordField("Enfermedad actual", record.currentIllness)}
+        ${renderRecordField("Antecedentes", record.personalHistory)}
         ${renderRecordField("Revisión por sistemas", record.systemsReview)}
+        ${renderRecordField("Examen físico", record.physicalExam)}
         ${renderRecordField("Diagnóstico", record.diagnosis)}
+        ${renderRecordField("Plan", record.treatmentPlan)}
       </dl>
       <div class="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
         <strong class="block text-emerald-950">Prescripción / Fórmula médica</strong>
@@ -366,10 +394,24 @@ function renderRecordField(label, value) {
 async function saveClinicalRecord(container, form) {
   try {
     await createClinicalRecord(selectedPatient.id, {
+      consultationDate: form.querySelector("#record-consultationDate").value,
+      doctorName: form.querySelector("#record-doctorName").value,
+      cie10: form.querySelector("#record-cie10").value,
       reason: form.querySelector("#record-reason").value,
       currentIllness: form.querySelector("#record-currentIllness").value,
+      personalHistory: form.querySelector("#record-personalHistory").value,
+      familyHistory: form.querySelector("#record-familyHistory").value,
+      pharmacologicalHistory: form.querySelector("#record-pharmacologicalHistory").value,
+      allergies: form.querySelector("#record-allergies").value,
+      bloodPressure: form.querySelector("#record-bloodPressure").value,
+      heartRate: form.querySelector("#record-heartRate").value,
+      temperature: form.querySelector("#record-temperature").value,
+      weight: form.querySelector("#record-weight").value,
       systemsReview: form.querySelector("#record-systemsReview").value,
+      physicalExam: form.querySelector("#record-physicalExam").value,
       diagnosis: form.querySelector("#record-diagnosis").value,
+      treatmentPlan: form.querySelector("#record-treatmentPlan").value,
+      recommendations: form.querySelector("#record-recommendations").value,
       prescription: form.querySelector("#record-prescription").value
     });
 
@@ -379,6 +421,89 @@ async function saveClinicalRecord(container, form) {
   } catch (error) {
     showMessage(container, "No fue posible guardar la consulta clínica.", "error");
   }
+}
+
+function bindRecordPdfButtons() {
+  document.querySelectorAll("[data-print-record]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = currentRecords.find((item) => item.id === button.dataset.printRecord);
+      if (record) {
+        printClinicalRecord(record);
+      }
+    });
+  });
+}
+
+function printClinicalRecord(record) {
+  const printWindow = window.open("", "_blank", "width=900,height=1100");
+  const patientName = selectedPatient?.fullName || "Paciente";
+  const documentNumber = selectedPatient?.documentNumber || "";
+
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="es">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Historia clínica - ${patientName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
+          header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #16a34a; padding-bottom: 16px; margin-bottom: 24px; }
+          img { width: 110px; height: 110px; object-fit: contain; }
+          h1 { margin: 0; font-size: 24px; }
+          h2 { margin-top: 24px; color: #166534; border-bottom: 1px solid #dcfce7; padding-bottom: 6px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+          .box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; white-space: pre-wrap; }
+          .label { font-size: 12px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+          button { border: 0; border-radius: 12px; background: #047857; color: white; padding: 12px 18px; font-weight: 700; }
+          @media print { button { display: none; } body { margin: 18mm; } }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <h1>Historia clínica - Ecoalfa</h1>
+            <p>Paciente: <strong>${patientName}</strong><br/>Documento: <strong>${documentNumber}</strong><br/>Fecha: <strong>${record.consultationDate || formatDate(record.createdAt)}</strong></p>
+          </div>
+          <img src="./assets/ecoalfa-logo.svg" alt="Ecoalfa" />
+        </header>
+        <section class="grid">
+          ${pdfField("Profesional", record.doctorName)}
+          ${pdfField("CIE-10", record.cie10)}
+          ${pdfField("Motivo", record.reason)}
+          ${pdfField("Enfermedad actual", record.currentIllness)}
+          ${pdfField("Antecedentes personales", record.personalHistory)}
+          ${pdfField("Antecedentes familiares", record.familyHistory)}
+          ${pdfField("Medicamentos actuales", record.pharmacologicalHistory)}
+          ${pdfField("Alergias", record.allergies)}
+        </section>
+        <h2>Signos vitales</h2>
+        <section class="grid">
+          ${pdfField("TA", record.vitalSigns?.bloodPressure)}
+          ${pdfField("FC", record.vitalSigns?.heartRate)}
+          ${pdfField("Temperatura", record.vitalSigns?.temperature)}
+          ${pdfField("Peso", record.vitalSigns?.weight)}
+        </section>
+        <h2>Evaluación</h2>
+        ${pdfBlock("Revisión por sistemas", record.systemsReview)}
+        ${pdfBlock("Examen físico", record.physicalExam)}
+        ${pdfBlock("Diagnóstico", record.diagnosis)}
+        ${pdfBlock("Plan de manejo", record.treatmentPlan)}
+        ${pdfBlock("Prescripción / fórmula médica", record.prescription)}
+        ${pdfBlock("Recomendaciones", record.recommendations)}
+        <button onclick="window.print()">Imprimir / Guardar PDF</button>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+}
+
+function pdfField(label, value) {
+  return `<div class="box"><div class="label">${label}</div>${value || "Sin información"}</div>`;
+}
+
+function pdfBlock(label, value) {
+  return `<div class="box"><div class="label">${label}</div>${value || "Sin información"}</div>`;
 }
 
 function renderNoPatientSelected() {
