@@ -14,7 +14,7 @@ import {
   startAfter,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { db, app } from "../firebase/config.js";
 
 const USERS_PAGE_SIZE = 10;
@@ -49,7 +49,7 @@ export async function createUserWithProfile(profile) {
     uid = credential.user.uid;
     await secondaryAuth.signOut();
   } finally {
-    await secondaryApp.delete();
+    await deleteApp(secondaryApp);
   }
 
   await upsertUserProfile(uid, profile);
