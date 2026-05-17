@@ -128,11 +128,32 @@ function renderShell() {
         </div>
       </div>
 
-      <div class="grid gap-6 xl:grid-cols-[420px_1fr]">
-        <div class="space-y-6">
-        <form id="availability-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h3 class="text-lg font-semibold text-slate-900">Habilitar agenda médica</h3>
-          <p class="mt-1 text-sm text-slate-500">Cree cupos disponibles para que pacientes y recepción puedan reservarlos.</p>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <button id="open-availability-modal" class="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">Habilitar agenda médica</button>
+        <button id="open-appointment-modal" class="rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800">Nueva cita</button>
+      </div>
+      <p id="appointments-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
+
+      <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b border-slate-200 p-5">
+          <h3 class="text-lg font-semibold text-slate-900">Agenda del día</h3>
+          <p class="text-sm text-slate-500">Citas programadas para la fecha seleccionada.</p>
+        </div>
+        <div id="appointments-table" class="overflow-x-auto"></div>
+        <div class="border-t border-slate-200 p-4 text-right">
+          <button id="load-more-appointments" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cargar más</button>
+        </div>
+      </div>
+
+      <div id="availability-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4">
+        <form id="availability-form" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">Habilitar agenda médica</h3>
+              <p class="mt-1 text-sm text-slate-500">Cree cupos disponibles para que pacientes y recepción puedan reservarlos.</p>
+            </div>
+            <button data-close-modal="availability-modal" type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Cerrar</button>
+          </div>
           <div class="mt-5 space-y-4">
             <div>
               <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-doctorId">Médico</label>
@@ -167,10 +188,17 @@ function renderShell() {
             <button class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="submit">Habilitar cupos</button>
           </div>
         </form>
+      </div>
 
-        <form id="appointment-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h3 class="text-lg font-semibold text-slate-900">Nueva cita</h3>
-          <p class="mt-1 text-sm text-slate-500">Seleccione un cupo disponible para evitar doble asignación.</p>
+      <div id="appointment-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 p-4">
+        <form id="appointment-form" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">Nueva cita</h3>
+              <p class="mt-1 text-sm text-slate-500">Seleccione un cupo disponible para evitar doble asignación.</p>
+            </div>
+            <button data-close-modal="appointment-modal" type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Cerrar</button>
+          </div>
 
           <input id="appointment-id" type="hidden" />
 
@@ -215,31 +243,30 @@ function renderShell() {
                 ${APPOINTMENT_STATUSES.map((status) => `<option value="${status}">${status}</option>`).join("")}
               </select>
             </div>
-            <p id="appointments-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
             <div class="grid gap-3 sm:grid-cols-2">
               <button class="rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white transition hover:bg-blue-800" type="submit">Guardar cita</button>
               <button id="clear-appointment-form" class="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-50" type="button">Limpiar</button>
             </div>
           </div>
         </form>
-        </div>
-
-        <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="border-b border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-900">Agenda del día</h3>
-            <p class="text-sm text-slate-500">Citas programadas para la fecha seleccionada.</p>
-          </div>
-          <div id="appointments-table" class="overflow-x-auto"></div>
-          <div class="border-t border-slate-200 p-4 text-right">
-            <button id="load-more-appointments" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cargar más</button>
-          </div>
-        </div>
       </div>
     </section>
   `;
 }
 
 function bindAppointmentEvents(container) {
+  container.querySelector("#open-availability-modal").addEventListener("click", () => {
+    openModal(container, "availability-modal");
+  });
+
+  container.querySelector("#open-appointment-modal").addEventListener("click", () => {
+    openModal(container, "appointment-modal");
+  });
+
+  container.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", () => closeModal(container, button.dataset.closeModal));
+  });
+
   container.querySelector("#availability-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     await saveAvailability(container, event.currentTarget);
@@ -283,28 +310,55 @@ function bindAppointmentEvents(container) {
   });
 }
 
+function openModal(container, modalId) {
+  const modal = container.querySelector(`#${modalId}`);
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeModal(container, modalId) {
+  const modal = container.querySelector(`#${modalId}`);
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
 async function saveAvailability(container, form) {
-  const doctor = currentDoctors.find((item) => item.id === form["availability-doctorId"].value);
+  const doctorId = form.querySelector("#availability-doctorId").value;
+  const dateKey = form.querySelector("#availability-date").value;
+  const startTime = form.querySelector("#availability-start").value;
+  const endTime = form.querySelector("#availability-end").value;
+  const intervalMinutes = form.querySelector("#availability-interval").value;
+  const doctor = currentDoctors.find((item) => item.id === doctorId);
+
   if (!doctor) {
     showMessage(container, "Seleccione un médico para habilitar agenda.", "error");
     return;
   }
 
+  if (!dateKey || !startTime || !endTime || startTime >= endTime) {
+    showMessage(container, "Verifica la fecha y el rango de horas.", "error");
+    return;
+  }
+
   try {
+    showMessage(container, "Creando cupos disponibles...", "success");
     const total = await createAvailabilitySlots({
       doctorId: doctor.id,
       doctorName: doctor.displayName || doctor.email,
-      dateKey: form["availability-date"].value,
-      startTime: form["availability-start"].value,
-      endTime: form["availability-end"].value,
-      intervalMinutes: form["availability-interval"].value
+      dateKey,
+      startTime,
+      endTime,
+      intervalMinutes
     });
 
     showMessage(container, `Agenda habilitada: ${total} cupos creados.`, "success");
+    closeModal(container, "availability-modal");
+    form.reset();
+    form.querySelector("#availability-date").value = selectedDateKey;
     await loadSlotsForAppointment(container);
   } catch (error) {
     console.error("No fue posible habilitar agenda", error);
-    showMessage(container, "No fue posible habilitar la agenda. Verifica permisos.", "error");
+    showMessage(container, error.code === "permission-denied" ? "No fue posible habilitar la agenda por permisos. Publica las reglas Firestore actualizadas." : "No fue posible habilitar la agenda. Verifica permisos.", "error");
   }
 }
 
@@ -484,10 +538,12 @@ async function saveAppointment(container, form) {
     selectedDateKey = payload.dateKey;
     container.querySelector("#appointments-date").value = selectedDateKey;
     resetAppointmentForm(container);
+    closeModal(container, "appointment-modal");
     await loadAppointments(container, true);
     showMessage(container, "Cita guardada correctamente.", "success");
   } catch (error) {
-    showMessage(container, "No fue posible guardar la cita. Verifica permisos y datos.", "error");
+    console.error("No fue posible guardar la cita", error);
+    showMessage(container, error.message === "slot-already-booked" ? "Ese cupo acaba de ser tomado. Selecciona otro." : "No fue posible guardar la cita. Verifica permisos y datos.", "error");
   }
 }
 
