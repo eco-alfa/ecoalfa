@@ -74,12 +74,12 @@ service cloud.firestore {
     }
 
     match /inventory/{medicineId} {
-      allow read: if isAdmin() || isOperador() || isAsesor();
+      allow read: if isAdmin() || isMedico() || isOperador() || isAsesor();
       allow create, update: if isAdmin() || isOperador();
       allow delete: if isAdmin();
 
       match /movements/{movementId} {
-        allow read: if isAdmin() || isOperador() || isAsesor();
+        allow read: if isAdmin() || isMedico() || isOperador() || isAsesor();
         allow create: if isAdmin() || isOperador();
         allow update, delete: if isAdmin();
       }
