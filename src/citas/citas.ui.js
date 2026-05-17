@@ -2,16 +2,21 @@ import { getSession } from "../auth/session.js";
 import {
   APPOINTMENT_STATUSES,
   createAppointment,
+  createAvailabilitySlots,
+  getAvailableSlots,
   getAppointmentsByDate,
   updateAppointment,
   getPatients,
-  getDoctorsByRole
+  getDoctorsByRole,
+  reserveAppointmentSlot
 } from "./citas.service.js";
 
 let selectedDateKey = getTodayKey();
 let lastVisibleAppointment = null;
 let canLoadMoreAppointments = false;
 let currentAppointments = [];
+let currentDoctors = [];
+let currentSlots = [];
 
 export async function renderCitasModule(container) {
   container.innerHTML = renderShell();
@@ -23,26 +28,24 @@ export async function renderCitasModule(container) {
 
 async function loadDoctors(container) {
   try {
-    const doctors = await getDoctorsByRole();
-    const select = container.querySelector("#doctorId");
-    if (select) {
-      doctors.forEach((doctor) => {
-        const option = document.createElement("option");
-        option.value = doctor.id;
-        option.textContent = doctor.displayName || doctor.email;
-        select.appendChild(option);
-      });
-      
-      select.addEventListener("change", () => {
-        const selected = doctors.find((d) => d.id === select.value);
-        if (selected) {
-          container.querySelector("#doctorName").value = selected.displayName || selected.email;
-        }
-      });
-    }
+    currentDoctors = await getDoctorsByRole();
+    console.log("[Citas] Médicos activos cargados", { total: currentDoctors.length, doctors: currentDoctors });
+    fillDoctorSelect(container.querySelector("#doctorId"));
+    fillDoctorSelect(container.querySelector("#availability-doctorId"));
   } catch (error) {
     console.error("Error cargando doctores:", error);
   }
+}
+
+function fillDoctorSelect(select) {
+  if (!select) return;
+  select.querySelectorAll("option:not(:first-child)").forEach((option) => option.remove());
+  currentDoctors.forEach((doctor) => {
+    const option = document.createElement("option");
+    option.value = doctor.id;
+    option.textContent = doctor.displayName || doctor.email;
+    select.appendChild(option);
+  });
 }
 
 function setupPatientSearch(container) {
@@ -126,9 +129,48 @@ function renderShell() {
       </div>
 
       <div class="grid gap-6 xl:grid-cols-[420px_1fr]">
+        <div class="space-y-6">
+        <form id="availability-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h3 class="text-lg font-semibold text-slate-900">Habilitar agenda médica</h3>
+          <p class="mt-1 text-sm text-slate-500">Cree cupos disponibles para que pacientes y recepción puedan reservarlos.</p>
+          <div class="mt-5 space-y-4">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-doctorId">Médico</label>
+              <select id="availability-doctorId" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                <option value="">Seleccione un médico</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-date">Fecha</label>
+              <input id="availability-date" type="date" value="${selectedDateKey}" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-start">Desde</label>
+                <input id="availability-start" type="time" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-end">Hasta</label>
+                <input id="availability-end" type="time" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700" for="availability-interval">Duración de cada cita</label>
+              <select id="availability-interval" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                <option value="15">15 minutos</option>
+                <option value="20">20 minutos</option>
+                <option value="30" selected>30 minutos</option>
+                <option value="45">45 minutos</option>
+                <option value="60">60 minutos</option>
+              </select>
+            </div>
+            <button class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="submit">Habilitar cupos</button>
+          </div>
+        </form>
+
         <form id="appointment-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h3 class="text-lg font-semibold text-slate-900">Nueva cita</h3>
-          <p class="mt-1 text-sm text-slate-500">Complete los datos para programar la cita médica.</p>
+          <p class="mt-1 text-sm text-slate-500">Seleccione un cupo disponible para evitar doble asignación.</p>
 
           <input id="appointment-id" type="hidden" />
 
@@ -156,8 +198,11 @@ function renderShell() {
                 <input id="dateKey" type="date" value="${selectedDateKey}" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for="time">Hora</label>
-                <input id="time" type="time" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="slotId">Cupo disponible</label>
+                <select id="slotId" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                  <option value="">Seleccione médico y fecha</option>
+                </select>
+                <input id="time" type="hidden" />
               </div>
             </div>
             <div>
@@ -177,6 +222,7 @@ function renderShell() {
             </div>
           </div>
         </form>
+        </div>
 
         <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
           <div class="border-b border-slate-200 p-5">
@@ -194,9 +240,28 @@ function renderShell() {
 }
 
 function bindAppointmentEvents(container) {
+  container.querySelector("#availability-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await saveAvailability(container, event.currentTarget);
+  });
+
   container.querySelector("#appointment-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     await saveAppointment(container, event.currentTarget);
+  });
+
+  container.querySelector("#doctorId").addEventListener("change", async () => {
+    updateDoctorName(container);
+    await loadSlotsForAppointment(container);
+  });
+
+  container.querySelector("#dateKey").addEventListener("change", async () => {
+    await loadSlotsForAppointment(container);
+  });
+
+  container.querySelector("#slotId").addEventListener("change", () => {
+    const slot = currentSlots.find((item) => item.id === container.querySelector("#slotId").value);
+    container.querySelector("#time").value = slot?.time || "";
   });
 
   container.querySelector("#appointments-date").addEventListener("change", async (event) => {
@@ -216,6 +281,55 @@ function bindAppointmentEvents(container) {
   container.querySelector("#clear-appointment-form").addEventListener("click", () => {
     resetAppointmentForm(container);
   });
+}
+
+async function saveAvailability(container, form) {
+  const doctor = currentDoctors.find((item) => item.id === form["availability-doctorId"].value);
+  if (!doctor) {
+    showMessage(container, "Seleccione un médico para habilitar agenda.", "error");
+    return;
+  }
+
+  try {
+    const total = await createAvailabilitySlots({
+      doctorId: doctor.id,
+      doctorName: doctor.displayName || doctor.email,
+      dateKey: form["availability-date"].value,
+      startTime: form["availability-start"].value,
+      endTime: form["availability-end"].value,
+      intervalMinutes: form["availability-interval"].value
+    });
+
+    showMessage(container, `Agenda habilitada: ${total} cupos creados.`, "success");
+    await loadSlotsForAppointment(container);
+  } catch (error) {
+    console.error("No fue posible habilitar agenda", error);
+    showMessage(container, "No fue posible habilitar la agenda. Verifica permisos.", "error");
+  }
+}
+
+function updateDoctorName(container) {
+  const doctorId = container.querySelector("#doctorId").value;
+  const doctor = currentDoctors.find((item) => item.id === doctorId);
+  container.querySelector("#doctorName").value = doctor ? (doctor.displayName || doctor.email) : "";
+}
+
+async function loadSlotsForAppointment(container) {
+  const doctorId = container.querySelector("#doctorId").value;
+  const dateKey = container.querySelector("#dateKey").value;
+  const slotSelect = container.querySelector("#slotId");
+  slotSelect.innerHTML = `<option value="">Cargando cupos...</option>`;
+  container.querySelector("#time").value = "";
+
+  try {
+    currentSlots = await getAvailableSlots(doctorId, dateKey);
+    slotSelect.innerHTML = currentSlots.length
+      ? `<option value="">Seleccione un cupo</option>${currentSlots.map((slot) => `<option value="${slot.id}">${slot.time}</option>`).join("")}`
+      : `<option value="">No hay cupos disponibles</option>`;
+  } catch (error) {
+    console.error("No fue posible cargar cupos", error);
+    slotSelect.innerHTML = `<option value="">No fue posible cargar cupos</option>`;
+  }
 }
 
 async function loadAppointments(container, reset) {
@@ -344,8 +458,11 @@ function fillAppointmentForm(container, appointmentId) {
 
 async function saveAppointment(container, form) {
   const appointmentId = form.querySelector("#appointment-id").value;
+  const slotId = form.querySelector("#slotId").value;
   const payload = {
+    patientId: form.patientId.value,
     patientName: form.patientName.value.trim(),
+    doctorId: form.doctorId.value,
     doctorName: form.doctorName.value.trim(),
     dateKey: form.dateKey.value,
     time: form.time.value,
@@ -357,7 +474,11 @@ async function saveAppointment(container, form) {
     if (appointmentId) {
       await updateAppointment(appointmentId, payload);
     } else {
-      await createAppointment(payload);
+      if (!slotId) {
+        showMessage(container, "Seleccione un cupo disponible.", "error");
+        return;
+      }
+      await reserveAppointmentSlot(slotId, payload);
     }
 
     selectedDateKey = payload.dateKey;
@@ -377,6 +498,8 @@ function resetAppointmentForm(container) {
   form.querySelector("#appointment-id").value = "";
   form.dateKey.value = selectedDateKey;
   form.status.value = "Programada";
+  currentSlots = [];
+  form.slotId.innerHTML = `<option value="">Seleccione médico y fecha</option>`;
 }
 
 function showMessage(container, message, type) {

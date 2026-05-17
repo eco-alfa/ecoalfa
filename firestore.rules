@@ -60,6 +60,17 @@ service cloud.firestore {
       allow delete: if hasFullAccess();
     }
 
+    match /appointmentSlots/{slotId} {
+      allow read: if signedIn();
+      allow create, update: if hasFullAccess() || isOperador() || (
+        signedIn()
+        && resource.data.status == 'available'
+        && request.resource.data.status == 'booked'
+        && request.resource.data.authUid == request.auth.uid
+      );
+      allow delete: if hasFullAccess();
+    }
+
     match /patients/{patientId} {
       allow read: if signedIn();
       allow create: if hasFullAccess() || isOperador() || (signedIn() && request.resource.data.authUid == request.auth.uid);

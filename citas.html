@@ -29,6 +29,7 @@
         limit,
         orderBy,
         query,
+        runTransaction,
         serverTimestamp,
         setDoc,
         where
@@ -411,7 +412,6 @@
                   </div>
                 </div>
                 <div class="flex gap-3">
-                  <a href="./index.html" class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20">Funcionarios</a>
                   <button id="logout" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700">Salir</button>
                 </div>
               </div>
@@ -432,10 +432,13 @@
                     <div class="mt-4 space-y-4">
                       <div>
                         <label class="mb-1 block text-sm font-medium">Médico</label>
-                        <select id="doctorId" class="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="">Sin preferencia</option>${doctors.map((doctor) => `<option value="${doctor.id}">${doctor.fullName} · ${doctor.specialty || "Medicina"}</option>`).join("")}</select>
+                        <select id="doctorId" class="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="">Seleccione un médico</option>${doctors.map((doctor) => `<option value="${doctor.id}">${doctor.displayName || doctor.email} · ${doctor.specialty || "Medicina"}</option>`).join("")}</select>
                       </div>
                       ${inputField("requestedDate", "Fecha deseada", "date", true)}
-                      ${inputField("requestedTime", "Hora deseada", "time", true)}
+                      <div>
+                        <label class="mb-1 block text-sm font-medium">Cupo disponible</label>
+                        <select id="slotId" required class="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="">Selecciona médico y fecha</option></select>
+                      </div>
                       <label class="block text-sm font-medium">Motivo<textarea id="reason" rows="4" required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3"></textarea></label>
                       <p id="portal-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
                       <button class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white" type="submit">Enviar solicitud</button>
@@ -463,6 +466,8 @@
           event.preventDefault();
           await requestAppointment(user, patient, event.currentTarget);
         });
+        document.querySelector("#doctorId").addEventListener("change", loadAvailableSlotsForPortal);
+        document.querySelector("#requestedDate").addEventListener("change", loadAvailableSlotsForPortal);
         renderPatientProfile(patient);
       }
 
@@ -647,9 +652,11 @@
       }
 
       async function getDoctors() {
-        debugPortal("Consulta Firestore doctors ordenada por fullName");
-        const snapshot = await getDocs(query(collection(db, "doctors"), orderBy("fullName"), limit(50)));
-        return snapshot.docs.map((doctor) => ({ id: doctor.id, ...doctor.data() })).filter((doctor) => doctor.active !== false);
+        debugPortal("Consulta Firestore users role medico");
+        const snapshot = await getDocs(query(collection(db, "users"), where("role", "==", "medico"), where("active", "==", true), limit(50)));
+        return snapshot.docs
+          .map((doctor) => ({ id: doctor.id, ...doctor.data() }))
+          .sort((a, b) => String(a.displayName || a.email || "").localeCompare(String(b.displayName || b.email || "")));
       }
 
       async function safeGetDoctors() {
@@ -663,9 +670,14 @@
 
       async function requestAppointment(user, patient, form) {
         const selectedDoctor = doctors.find((doctor) => doctor.id === form.doctorId.value);
+        const selectedSlot = await getSlotById(form.slotId.value);
         try {
-          debugPortal("Creando solicitud de cita", { uid: user.uid, patientId: patient.id, doctorId: form.doctorId.value });
-          await addDoc(collection(db, "publicAppointmentRequests"), {
+          if (!selectedSlot) {
+            showPortalMessage("Selecciona un cupo disponible.", "error");
+            return;
+          }
+          debugPortal("Reservando cupo de cita", { uid: user.uid, patientId: patient.id, slotId: form.slotId.value });
+          await reservePortalSlot(form.slotId.value, {
             patientId: patient.id,
             authUid: user.uid,
             documentType: patient.documentType,
@@ -674,21 +686,87 @@
             email: patient.email,
             phone: patient.phone,
             doctorId: form.doctorId.value,
-            doctorName: selectedDoctor?.fullName || "Sin preferencia",
-            requestedDate: form.requestedDate.value,
-            requestedTime: form.requestedTime.value,
+            doctorName: selectedDoctor?.displayName || selectedDoctor?.email || "Sin médico",
+            dateKey: selectedSlot.dateKey,
+            time: selectedSlot.time,
             reason: form.reason.value.trim(),
-            status: "Solicitada",
+            status: "Programada",
             source: "patient_portal",
+          });
+          form.reset();
+          document.querySelector("#slotId").innerHTML = `<option value="">Selecciona médico y fecha</option>`;
+          showPortalMessage("Cita reservada correctamente.", "success");
+        } catch (error) {
+          console.error("No se pudo solicitar cita", error);
+          showPortalMessage(error.message === "slot-already-booked" ? "Ese cupo acaba de ser tomado. Selecciona otro." : "No fue posible solicitar la cita.", "error");
+        }
+      }
+
+      async function loadAvailableSlotsForPortal() {
+        const doctorId = document.querySelector("#doctorId").value;
+        const requestedDate = document.querySelector("#requestedDate").value;
+        const slotSelect = document.querySelector("#slotId");
+        slotSelect.innerHTML = `<option value="">Cargando cupos...</option>`;
+
+        if (!doctorId || !requestedDate) {
+          slotSelect.innerHTML = `<option value="">Selecciona médico y fecha</option>`;
+          return;
+        }
+
+        try {
+          const snapshot = await getDocs(query(
+            collection(db, "appointmentSlots"),
+            where("doctorId", "==", doctorId),
+            where("dateKey", "==", requestedDate),
+            where("status", "==", "available"),
+            limit(80)
+          ));
+          const slots = snapshot.docs
+            .map((slotDoc) => ({ id: slotDoc.id, ...slotDoc.data() }))
+            .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+          slotSelect.innerHTML = slots.length
+            ? `<option value="">Selecciona un cupo</option>${slots.map((slot) => `<option value="${slot.id}">${slot.time}</option>`).join("")}`
+            : `<option value="">No hay cupos disponibles</option>`;
+        } catch (error) {
+          console.error("No se pudieron cargar cupos", error);
+          slotSelect.innerHTML = `<option value="">No se pudieron cargar cupos</option>`;
+        }
+      }
+
+      async function getSlotById(slotId) {
+        if (!slotId) return null;
+        const slotSnap = await getDoc(doc(db, "appointmentSlots", slotId));
+        return slotSnap.exists() ? { id: slotSnap.id, ...slotSnap.data() } : null;
+      }
+
+      async function reservePortalSlot(slotId, appointment) {
+        return runTransaction(db, async (transaction) => {
+          const slotRef = doc(db, "appointmentSlots", slotId);
+          const slotSnap = await transaction.get(slotRef);
+          if (!slotSnap.exists()) throw new Error("slot-not-found");
+          const slot = slotSnap.data();
+          if (slot.status !== "available") throw new Error("slot-already-booked");
+
+          const appointmentRef = doc(collection(db, "appointments"));
+          transaction.set(appointmentRef, {
+            ...appointment,
+            doctorId: slot.doctorId,
+            doctorName: slot.doctorName,
+            dateKey: slot.dateKey,
+            time: slot.time,
+            slotId,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
-          form.reset();
-          showPortalMessage("Solicitud enviada. El consultorio confirmará tu cita.", "success");
-        } catch (error) {
-          console.error("No se pudo solicitar cita", error);
-          showPortalMessage("No fue posible solicitar la cita.", "error");
-        }
+          transaction.update(slotRef, {
+            status: "booked",
+            appointmentId: appointmentRef.id,
+            patientId: appointment.patientId,
+            patientName: appointment.fullName,
+            authUid: appointment.authUid,
+            updatedAt: serverTimestamp()
+          });
+        });
       }
 
       async function getMyAppointments(user) {
@@ -756,7 +834,136 @@
 
       function renderRecords(items) {
         if (!items.length) return `<div class="rounded-xl border border-dashed border-slate-300 p-4 text-slate-500">Aún no tienes historia clínica registrada.</div>`;
-        return items.map((record) => `<article class="rounded-xl border border-slate-200 p-4"><strong>${record.diagnosis || "Consulta médica"}</strong><p class="mt-1 text-slate-500">${record.reason || ""}</p><p class="mt-2"><b>Tratamiento:</b> ${record.prescription || record.treatmentPlan || "Sin tratamiento registrado"}</p></article>`).join("");
+        const html = items.map((record, index) => `
+          <article class="rounded-xl border border-slate-200 p-4">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+              <div>
+                <strong class="block text-base text-slate-900">${record.diagnosis || "Consulta médica"}</strong>
+                <p class="mt-1 text-xs text-slate-500">${record.consultationDate || formatRecordDate(record.createdAt)} · ${record.doctorName || "Profesional no especificado"} ${record.cie10 ? `· CIE-10 ${record.cie10}` : ""}</p>
+              </div>
+              <button data-record-pdf="${index}" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Descargar PDF</button>
+            </div>
+            <div class="mt-4 grid gap-3 text-sm lg:grid-cols-2">
+              ${recordField("Motivo de consulta", record.reason)}
+              ${recordField("Enfermedad actual", record.currentIllness)}
+              ${recordField("Antecedentes relevantes", record.personalHistory)}
+              ${recordField("Examen físico", record.physicalExam)}
+              ${recordField("Signos vitales", [
+                record.bloodPressure ? `TA: ${record.bloodPressure}` : "",
+                record.heartRate ? `FC: ${record.heartRate}` : "",
+                record.temperature ? `Temp: ${record.temperature}` : "",
+                record.weight ? `Peso: ${record.weight}` : ""
+              ].filter(Boolean).join(" · "))}
+              ${recordField("Diagnóstico", record.diagnosis)}
+              ${recordField("Plan de manejo", record.treatmentPlan)}
+              ${recordField("Prescripción / fórmula", record.prescription)}
+              ${recordField("Recomendaciones", record.recommendations)}
+              ${recordField("Próximo control", record.nextControl)}
+            </div>
+          </article>
+        `).join("");
+
+        setTimeout(() => bindRecordPdfButtons(items), 0);
+        return html;
+      }
+
+      function recordField(label, value) {
+        return `
+          <div class="rounded-xl bg-slate-50 p-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">${label}</p>
+            <p class="mt-1 whitespace-pre-wrap text-slate-700">${value || "Sin dato registrado"}</p>
+          </div>
+        `;
+      }
+
+      function bindRecordPdfButtons(records) {
+        document.querySelectorAll("[data-record-pdf]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const record = records[Number(button.dataset.recordPdf)];
+            printClinicalRecord(record);
+          });
+        });
+      }
+
+      function printClinicalRecord(record) {
+        const printWindow = window.open("", "_blank", "width=900,height=700");
+        if (!printWindow) {
+          alert("El navegador bloqueó la ventana emergente. Permite pop-ups para descargar el PDF.");
+          return;
+        }
+
+        printWindow.document.write(`
+          <!doctype html>
+          <html lang="es">
+            <head>
+              <meta charset="utf-8" />
+              <title>Historia clínica - ${currentPatient?.fullName || "Paciente"}</title>
+              <style>
+                body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; line-height: 1.45; }
+                header { border-bottom: 2px solid #0f766e; margin-bottom: 24px; padding-bottom: 16px; }
+                h1 { margin: 0; color: #0f766e; }
+                h2 { margin-top: 24px; color: #334155; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }
+                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+                .box { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc; }
+                .label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+                .value { margin-top: 4px; white-space: pre-wrap; }
+                @media print { button { display: none; } body { margin: 18mm; } }
+              </style>
+            </head>
+            <body>
+              <header>
+                <h1>Ecoalfa - Historia clínica</h1>
+                <p><strong>Paciente:</strong> ${currentPatient?.fullName || "Sin nombre"}</p>
+                <p><strong>Documento:</strong> ${currentPatient?.documentType || ""} ${currentPatient?.documentNumber || ""}</p>
+                <p><strong>EPS:</strong> ${currentPatient?.eps || "Sin dato"} · <strong>Grupo sanguíneo:</strong> ${currentPatient?.bloodType || "Sin dato"}</p>
+              </header>
+              <h2>Consulta</h2>
+              <div class="grid">
+                ${pdfField("Fecha", record.consultationDate || formatRecordDate(record.createdAt))}
+                ${pdfField("Médico", record.doctorName)}
+                ${pdfField("CIE-10", record.cie10)}
+                ${pdfField("Próximo control", record.nextControl)}
+              </div>
+              <h2>Detalle clínico</h2>
+              <div class="grid">
+                ${pdfField("Motivo de consulta", record.reason)}
+                ${pdfField("Enfermedad actual", record.currentIllness)}
+                ${pdfField("Antecedentes relevantes", record.personalHistory)}
+                ${pdfField("Examen físico", record.physicalExam)}
+                ${pdfField("Signos vitales", [
+                  record.bloodPressure ? `TA: ${record.bloodPressure}` : "",
+                  record.heartRate ? `FC: ${record.heartRate}` : "",
+                  record.temperature ? `Temp: ${record.temperature}` : "",
+                  record.weight ? `Peso: ${record.weight}` : ""
+                ].filter(Boolean).join(" · "))}
+                ${pdfField("Diagnóstico", record.diagnosis)}
+                ${pdfField("Plan de manejo", record.treatmentPlan)}
+                ${pdfField("Prescripción / fórmula", record.prescription)}
+                ${pdfField("Recomendaciones", record.recommendations)}
+              </div>
+              <script>
+                window.onload = () => {
+                  window.print();
+                };
+              <\/script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+
+      function pdfField(label, value) {
+        return `<div class="box"><div class="label">${label}</div><div class="value">${value || "Sin dato registrado"}</div></div>`;
+      }
+
+      function formatRecordDate(timestamp) {
+        if (!timestamp?.toDate) {
+          return "Fecha no disponible";
+        }
+        return new Intl.DateTimeFormat("es-CO", {
+          dateStyle: "medium",
+          timeStyle: "short"
+        }).format(timestamp.toDate());
       }
 
       function showAuthMessage(text, type) {
