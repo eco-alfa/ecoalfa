@@ -262,6 +262,8 @@ function bindAppointmentEvents(container) {
   });
 
   container.querySelector("#open-appointment-modal").addEventListener("click", () => {
+    resetAppointmentForm(container);
+    container.querySelector("#dateKey").value = selectedDateKey;
     openModal(container, "appointment-modal");
   });
 
@@ -578,7 +580,15 @@ function resetAppointmentForm(container) {
 
   form.reset();
   form.querySelector("#appointment-id").value = "";
+  form.patientId.value = "";
+  form.patientName.value = "";
+  form.patientSearch.value = "";
+  container.querySelector("#selected-patient").textContent = "";
+  form.doctorId.value = "";
+  form.doctorName.value = "";
   form.dateKey.value = selectedDateKey;
+  form.time.value = "";
+  form.reason.value = "";
   form.status.value = "Programada";
   currentSlots = [];
   form.slotId.innerHTML = `<option value="">Seleccione médico y fecha</option>`;

@@ -697,7 +697,8 @@
           });
           form.reset();
           document.querySelector("#slotId").innerHTML = `<option value="">Selecciona médico y fecha</option>`;
-          showPortalMessage("Cita reservada correctamente.", "success");
+          await loadPanelData("appointments", "#appointments-panel-content", () => getMyAppointments(user), renderAppointments);
+          showSuccessModal("¡Cita reservada correctamente!");
         } catch (error) {
           console.error("No se pudo solicitar cita", error);
           showPortalMessage(error.message === "slot-already-booked" ? "Ese cupo acaba de ser tomado. Selecciona otro." : "No fue posible solicitar la cita.", "error");
@@ -998,6 +999,31 @@
         const box = document.querySelector("#portal-message");
         box.className = `rounded-xl px-4 py-3 text-sm ${type === "success" ? "bg-blue-50 text-blue-700" : "bg-red-50 text-red-700"}`;
         box.textContent = text;
+      }
+
+      function showSuccessModal(message) {
+        const modal = document.createElement("div");
+        modal.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
+        modal.innerHTML = `
+          <div class="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl text-center">
+            <div class="mb-6 flex justify-center">
+              <div class="h-20 w-20 rounded-full bg-emerald-100 flex items-center justify-center">
+                <svg class="h-12 w-12 text-emerald-600 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">¡Listo!</h3>
+            <p class="text-slate-600 mb-6">${message}</p>
+            <button class="w-full rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white transition hover:bg-emerald-800" onclick="this.closest('.fixed').remove()">
+              Aceptar
+            </button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        setTimeout(() => {
+          modal.querySelector("button")?.focus();
+        }, 100);
       }
     </script>
   </body>
