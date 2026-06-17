@@ -15,6 +15,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { db } from "../firebase/config.js";
 
+const COLOMBIA_TIME_ZONE = "America/Bogota";
+const ACTIVE_APPOINTMENT_STATUSES = ["Programada", "Confirmada", "En espera", "En Sala de Espera"];
+
 export const APPOINTMENT_STATUSES = [
   "Solicitada",
   "Programada",
@@ -92,7 +95,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus, user) {
   };
   
   const now = new Date();
-  const timeString = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+  const timeString = now.toLocaleTimeString("es-CO", { timeZone: COLOMBIA_TIME_ZONE, hour: "2-digit", minute: "2-digit" });
   
   if (newStatus === "En Sala de Espera" && !appointmentSnap.data().arrivalTime) {
     updateData.arrivalTime = timeString;
@@ -242,20 +245,53 @@ function buildTimeSlots(startTime, endTime, intervalMinutes) {
 }
 
 export async function getTodayAppointmentsForDoctor(doctorId) {
-  const today = new Date().toISOString().split('T')[0];
-  const dateKey = today.replace(/-/g, '');
-  
+  const dateKey = getTodayKey();
+  const appointments = await getAppointmentsForDoctorByDateKey(doctorId, dateKey);
+  const compactDateKey = dateKey.replaceAll("-", "");
+
+  if (compactDateKey === dateKey) {
+    return appointments;
+  }
+
+  try {
+    const legacyAppointments = await getAppointmentsForDoctorByDateKey(doctorId, compactDateKey);
+    const appointmentsById = new Map([...appointments, ...legacyAppointments].map((appointment) => [appointment.id, appointment]));
+    return [...appointmentsById.values()].sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+  } catch (error) {
+    return appointments;
+  }
+}
+
+async function getAppointmentsForDoctorByDateKey(doctorId, dateKey) {
   const appointmentsQuery = query(
     collection(db, "appointments"),
     where("dateKey", "==", dateKey),
     where("doctorId", "==", doctorId),
-    where("status", "in", ["Programada", "Confirmada", "En Sala de Espera"])
+    where("status", "in", ACTIVE_APPOINTMENT_STATUSES)
   );
-  
+
   const snapshot = await getDocs(appointmentsQuery);
-  
+
   return snapshot.docs.map((appointmentDoc) => ({
     id: appointmentDoc.id,
     ...appointmentDoc.data()
   })).sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+}
+
+function getTodayKey() {
+  return getColombiaDateKey();
+}
+
+function getColombiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }

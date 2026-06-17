@@ -11,6 +11,8 @@ import {
   reserveAppointmentSlot
 } from "./citas.service.js";
 
+const COLOMBIA_TIME_ZONE = "America/Bogota";
+
 let selectedDateKey = getTodayKey();
 let lastVisibleAppointment = null;
 let canLoadMoreAppointments = false;
@@ -480,7 +482,9 @@ function bindTableEvents(container) {
   const currentUser = session.user ? { ...session.user, displayName: session.profile?.displayName } : null;
   
   container.querySelectorAll("[data-edit-appointment]").forEach((button) => {
-    button.addEventListener("click", () => fillAppointmentForm(container, button.dataset.editAppointment));
+    button.addEventListener("click", async () => {
+      await fillAppointmentForm(container, button.dataset.editAppointment);
+    });
   });
 
   container.querySelectorAll("[data-status-appointment]").forEach((select) => {
@@ -497,17 +501,30 @@ function bindTableEvents(container) {
   });
 }
 
-function fillAppointmentForm(container, appointmentId) {
+async function fillAppointmentForm(container, appointmentId) {
   const appointment = currentAppointments.find((item) => item.id === appointmentId);
   const form = container.querySelector("#appointment-form");
 
+  if (!appointment || !form) {
+    showMessage(container, "No fue posible cargar la cita seleccionada.", "error");
+    return;
+  }
+
   form.querySelector("#appointment-id").value = appointment.id;
+  form.patientId.value = appointment.patientId || "";
   form.patientName.value = appointment.patientName || "";
+  form.patientSearch.value = appointment.patientName || "";
+  container.querySelector("#selected-patient").textContent = appointment.patientName ? `Paciente seleccionado: ${appointment.patientName}` : "";
+  form.doctorId.value = appointment.doctorId || "";
   form.doctorName.value = appointment.doctorName || "";
   form.dateKey.value = appointment.dateKey || selectedDateKey;
   form.time.value = appointment.time || "";
   form.reason.value = appointment.reason || "";
   form.status.value = appointment.status || "Programada";
+  await loadSlotsForAppointment(container);
+  form.slotId.innerHTML = `<option value="${appointment.slotId || ""}">${appointment.time || "Cupo actual"}</option>${form.slotId.innerHTML}`;
+  form.slotId.value = appointment.slotId || "";
+  openModal(container, "appointment-modal");
 }
 
 async function saveAppointment(container, form) {
@@ -567,5 +584,19 @@ function showMessage(container, message, type) {
 }
 
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return getColombiaDateKey();
+}
+
+function getColombiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }

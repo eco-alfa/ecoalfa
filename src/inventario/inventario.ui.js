@@ -8,6 +8,8 @@ import {
   upsertMedicine
 } from "./inventario.service.js";
 
+const COLOMBIA_TIME_ZONE = "America/Bogota";
+
 let currentMedicines = [];
 let selectedMedicine = null;
 let currentMovements = [];
@@ -368,6 +370,7 @@ function formatDate(timestamp) {
   }
 
   return new Intl.DateTimeFormat("es-CO", {
+    timeZone: COLOMBIA_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short"
   }).format(timestamp.toDate());

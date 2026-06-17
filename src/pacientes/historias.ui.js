@@ -2,9 +2,12 @@ import {
   createClinicalRecord,
   getClinicalRecords,
   getPatientById,
+  getPatientsPage,
 } from "./pacientes.service.js";
 import { getSession } from "../auth/session.js";
 import { getTodayAppointmentsForDoctor } from "../citas/citas.service.js";
+
+const COLOMBIA_TIME_ZONE = "America/Bogota";
 
 let currentPatients = [];
 let currentRecords = [];
@@ -13,8 +16,17 @@ let lastVisiblePatient = null;
 let lastVisibleRecord = null;
 let canLoadMorePatients = false;
 let canLoadMoreRecords = false;
+let currentMode = "historias";
 
 export async function renderHistoriasModule(container) {
+  currentMode = "historias";
+  container.innerHTML = renderMainView();
+  bindMainEvents(container);
+  await selectStoredPatient(container);
+}
+
+export async function renderAtencionMedicaModule(container) {
+  currentMode = "atencion";
   container.innerHTML = renderMainView();
   bindMainEvents(container);
   await selectStoredPatient(container);
@@ -24,8 +36,8 @@ function renderMainView() {
   return `
     <section class="space-y-6">
       <div>
-        <h2 class="text-2xl font-bold text-slate-900">Historias clínicas</h2>
-        <p class="text-slate-500">Gestión médica de consultas, evoluciones y prescripciones.</p>
+        <h2 class="text-2xl font-bold text-slate-900">${currentMode === "atencion" ? "Atención médica" : "Historias clínicas"}</h2>
+        <p class="text-slate-500">${currentMode === "atencion" ? "Inicie consultas y revise las citas asignadas para hoy." : "Gestión profesional del historial clínico, búsqueda de pacientes, evolución y PDF."}</p>
       </div>
 
       <div class="grid gap-6 md:grid-cols-2">
@@ -37,8 +49,8 @@ function renderMainView() {
               </svg>
             </div>
             <div>
-              <h3 class="text-xl font-bold">Buscar paciente</h3>
-              <p class="mt-1 text-sm text-emerald-100">Seleccionar paciente para ver historial o registrar consulta.</p>
+              <h3 class="text-xl font-bold">${currentMode === "atencion" ? "Ver mis citas del día" : "Buscar historial clínico"}</h3>
+              <p class="mt-1 text-sm text-emerald-100">${currentMode === "atencion" ? "Pacientes con citas asignadas al médico para hoy." : "Buscar pacientes para consultar y gestionar su historial."}</p>
             </div>
           </div>
         </button>
@@ -51,7 +63,7 @@ function renderMainView() {
               </svg>
             </div>
             <div>
-              <h3 class="text-xl font-bold">Registrar consulta</h3>
+              <h3 class="text-xl font-bold">${currentMode === "atencion" ? "Iniciar atención" : "Registrar evolución"}</h3>
               <p class="mt-1 text-sm text-slate-300">${selectedPatient ? `Paciente: ${selectedPatient.fullName}` : "Primero seleccione un paciente"}</p>
             </div>
           </div>
@@ -81,7 +93,7 @@ function renderMainView() {
         <div class="flex min-h-screen items-center justify-center p-4">
           <div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-              <h3 class="text-xl font-bold text-slate-900">Pacientes en sala de espera</h3>
+              <h3 class="text-xl font-bold text-slate-900">${currentMode === "atencion" ? "Pacientes asignados hoy" : "Búsqueda de historiales clínicos"}</h3>
               <button id="close-search-modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -90,13 +102,13 @@ function renderMainView() {
             </div>
 
             <div class="mb-4 flex gap-2">
-              <input id="history-patient-search" placeholder="Filtrar los pacientes en sala por nombre o documento" class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+              <input id="history-patient-search" placeholder="${currentMode === "atencion" ? "Filtrar pacientes asignados por nombre o documento" : "Buscar por nombre o documento"}" class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
               <button id="history-search-patient" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Filtrar</button>
               <button id="history-refresh-patients" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Actualizar</button>
             </div>
 
             <div id="history-patients-list" class="max-h-[400px] overflow-y-auto space-y-2">
-              <div class="p-6 text-sm text-slate-500 text-center">Cargando pacientes en sala de espera asignados a usted...</div>
+              <div class="p-6 text-sm text-slate-500 text-center">${currentMode === "atencion" ? "Cargando pacientes asignados a usted para hoy..." : "Use la búsqueda o actualizar para cargar pacientes."}</div>
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -257,8 +269,7 @@ function bindMainEvents(container) {
       alert("Primero debe seleccionar un paciente");
       return;
     }
-    container.querySelector("#consultation-modal").classList.remove("hidden");
-    document.body.style.overflow = "hidden";
+    openConsultationModal(container);
     // Recargar historial
     loadRecords(container, true);
   });
@@ -305,6 +316,24 @@ function closeSearchModal(container) {
   document.body.style.overflow = "";
 }
 
+function openConsultationModal(container) {
+  const form = container.querySelector("#clinical-record-form");
+  const session = getSession();
+  const dateInput = form?.querySelector("#record-consultationDate");
+  const doctorInput = form?.querySelector("#record-doctorName");
+
+  if (dateInput && !dateInput.value) {
+    dateInput.value = getColombiaDateKey();
+  }
+
+  if (doctorInput && !doctorInput.value) {
+    doctorInput.value = session.profile?.displayName || session.user?.displayName || session.user?.email || "";
+  }
+
+  container.querySelector("#consultation-modal").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
 function closeConsultationModal(container) {
   container.querySelector("#consultation-modal").classList.add("hidden");
   document.body.style.overflow = "";
@@ -319,25 +348,32 @@ async function loadPatients(container, reset) {
     lastVisiblePatient = null;
   }
 
-  list.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center"><div class="inline-flex items-center gap-2"><div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600"></div>Cargando pacientes en sala de espera...</div></div>`;
+  list.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center"><div class="inline-flex items-center gap-2"><div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600"></div>${currentMode === "atencion" ? "Cargando pacientes asignados..." : "Cargando pacientes..."}</div></div>`;
 
   try {
-    const patients = await getWaitingRoomPatientsForCurrentDoctor();
-    currentPatients = patients;
-    lastVisiblePatient = null;
-    canLoadMorePatients = false;
+    if (currentMode === "atencion") {
+      currentPatients = await getAssignedPatientsForCurrentDoctor();
+      lastVisiblePatient = null;
+      canLoadMorePatients = false;
+    } else {
+      const page = await getPatientsPage(lastVisiblePatient);
+      currentPatients = [...currentPatients, ...page.patients];
+      lastVisiblePatient = page.lastVisible;
+      canLoadMorePatients = page.hasMore;
+    }
 
-    list.innerHTML = currentPatients.length ? renderPatientCards(currentPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No hay pacientes en sala de espera asignados a usted para hoy.</div>`;
+    const emptyMessage = currentMode === "atencion" ? "No hay pacientes con citas asignadas a usted para hoy." : "No hay pacientes para mostrar.";
+    list.innerHTML = currentPatients.length ? renderPatientCards(currentPatients) : `<div class="p-4 text-sm text-slate-500 text-center">${emptyMessage}</div>`;
     loadMoreButton.disabled = !canLoadMorePatients;
     loadMoreButton.classList.toggle("opacity-50", !canLoadMorePatients);
     bindPatientCards(container);
   } catch (error) {
-    console.error("[Historias] No fue posible cargar pacientes en sala de espera", error);
-    list.innerHTML = `<div class="p-4 text-sm text-red-600 text-center">No fue posible cargar pacientes en sala de espera. ${error.message || ""}</div>`;
+    console.error("[Historias] No fue posible cargar pacientes", error);
+    list.innerHTML = `<div class="p-4 text-sm text-red-600 text-center">No fue posible cargar pacientes. ${error.message || ""}</div>`;
   }
 }
 
-async function getWaitingRoomPatientsForCurrentDoctor() {
+async function getAssignedPatientsForCurrentDoctor() {
   const session = getSession();
   const doctorId = session.profile?.id || session.user?.uid;
 
@@ -346,18 +382,25 @@ async function getWaitingRoomPatientsForCurrentDoctor() {
   }
 
   const appointments = await getTodayAppointmentsForDoctor(doctorId);
-  const waitingAppointments = appointments.filter((appointment) => appointment.status === "En Sala de Espera");
-  const uniquePatientIds = [...new Set(waitingAppointments.map((appointment) => appointment.patientId).filter(Boolean))];
-  const patients = await Promise.all(uniquePatientIds.map((patientId) => getPatientById(patientId)));
+  const appointmentsByPatientId = new Map();
+
+  appointments.forEach((appointment) => {
+    if (appointment.patientId && !appointmentsByPatientId.has(appointment.patientId)) {
+      appointmentsByPatientId.set(appointment.patientId, appointment);
+    }
+  });
+
+  const patients = await Promise.all([...appointmentsByPatientId.keys()].map((patientId) => getPatientById(patientId)));
 
   return patients
     .filter(Boolean)
     .map((patient) => {
-      const appointment = waitingAppointments.find((item) => item.patientId === patient.id);
+      const appointment = appointmentsByPatientId.get(patient.id);
       return {
         ...patient,
         appointmentTime: appointment?.time || "",
-        appointmentId: appointment?.id || ""
+        appointmentId: appointment?.id || "",
+        appointmentStatus: appointment?.status || "Programada"
       };
     });
 }
@@ -378,7 +421,8 @@ async function searchPatients(container) {
     String(patient.documentNumber || "").toLowerCase().includes(normalizedTerm)
   );
 
-  list.innerHTML = filteredPatients.length ? renderPatientCards(filteredPatients) : `<div class="p-4 text-sm text-slate-500 text-center">No se encontraron pacientes en sala con ese filtro.</div>`;
+  const emptyMessage = currentMode === "atencion" ? "No se encontraron pacientes asignados con ese filtro." : "No se encontraron pacientes con ese filtro.";
+  list.innerHTML = filteredPatients.length ? renderPatientCards(filteredPatients) : `<div class="p-4 text-sm text-slate-500 text-center">${emptyMessage}</div>`;
   loadMoreButton.disabled = true;
   loadMoreButton.classList.add("opacity-50");
   bindPatientCards(container, filteredPatients);
@@ -391,7 +435,7 @@ function renderPatientCards(patients) {
         <div>
           <strong class="block text-sm text-slate-900">${patient.fullName || "Sin nombre"}</strong>
           <span class="mt-1 block text-xs text-slate-500">${patient.documentNumber || "Sin documento"}</span>
-          <span class="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">En sala ${patient.appointmentTime ? `· ${patient.appointmentTime}` : ""}</span>
+          ${renderPatientAppointmentBadge(patient)}
           <span class="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">${patient.phone || patient.email || "Sin contacto"}</span>
         </div>
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -402,6 +446,16 @@ function renderPatientCards(patients) {
   `).join("");
 }
 
+function renderPatientAppointmentBadge(patient) {
+  if (currentMode !== "atencion") {
+    return "";
+  }
+
+  const status = patient.appointmentStatus || "Programada";
+  const label = status === "En Sala de Espera" ? "En sala" : status;
+  return `<span class="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">${label}${patient.appointmentTime ? ` · ${patient.appointmentTime}` : ""}</span>`;
+}
+
 function bindPatientCards(container, patients = currentPatients) {
   container.querySelectorAll("[data-select-patient]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -409,8 +463,7 @@ function bindPatientCards(container, patients = currentPatients) {
       closeSearchModal(container);
       container.innerHTML = renderMainView();
       bindMainEvents(container);
-      container.querySelector("#consultation-modal").classList.remove("hidden");
-      document.body.style.overflow = "hidden";
+      openConsultationModal(container);
       await loadRecords(container, true);
     });
   });
@@ -637,7 +690,22 @@ function formatDate(timestamp) {
   }
 
   return new Intl.DateTimeFormat("es-CO", {
+    timeZone: COLOMBIA_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short"
   }).format(timestamp.toDate());
+}
+
+function getColombiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }

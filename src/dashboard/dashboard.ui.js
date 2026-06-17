@@ -1,6 +1,8 @@
 import { getSession } from "../auth/session.js";
 import { getDashboardKpis } from "./dashboard.service.js";
 
+const COLOMBIA_TIME_ZONE = "America/Bogota";
+
 let dashboardChart = null;
 
 export async function renderDashboardModule(container) {
@@ -13,7 +15,7 @@ export async function renderDashboardModule(container) {
     const isMobile = detectMobileDevice();
     container.innerHTML = renderDashboard(kpis, isMobile);
     if (!isMobile) {
-      renderIncomeChart(kpis.incomeByDay);
+      requestAnimationFrame(() => renderIncomeChart(kpis.incomeByDay));
     }
   } catch (error) {
     console.error("[Dashboard UI] No fue posible cargar el dashboard", {
@@ -36,7 +38,7 @@ export async function renderDashboardModule(container) {
 }
 
 function detectMobileDevice() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return window.matchMedia("(max-width: 767px)").matches;
 }
 
 function renderLoading() {
@@ -60,7 +62,7 @@ function renderDashboard(kpis, isMobile) {
         ${kpis.limited ? `<span class="rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">Vista limitada</span>` : ""}
       </div>
 
-      <div class="grid gap-4 ${isMobile ? "grid-cols-2" : "md:grid-cols-4"}">
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         ${renderMetricCard("Ingresos hoy", `$${formatCurrency(kpis.dailyIncome)}`, "Diario")}
         ${renderMetricCard("Ingresos mes", `$${formatCurrency(kpis.monthlyIncome)}`, "Mensual")}
         ${renderMetricCard("Citas atendidas", kpis.attendedAppointments, "Total")}
@@ -69,15 +71,17 @@ function renderDashboard(kpis, isMobile) {
 
       ${renderPendingAppointments(kpis.pendingAppointments)}
 
-      <div class="grid gap-6 ${isMobile ? "grid-cols-1" : "xl:grid-cols-[1fr_380px]"}">
+      <div class="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         ${!isMobile ? `
         <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h3 class="mb-4 text-lg font-semibold text-slate-900">Ingresos últimos 7 días</h3>
-          <canvas id="income-chart" height="120"></canvas>
+          <div class="relative h-72 w-full">
+            <canvas id="income-chart"></canvas>
+          </div>
         </div>
         ` : ""}
 
-        <div class="space-y-6">
+        <div class="min-w-0 space-y-6">
           <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <h3 class="text-lg font-semibold text-slate-900">Medicamentos más vendidos</h3>
             <div class="mt-4 space-y-3">
@@ -107,9 +111,9 @@ function renderPendingAppointments(appointments) {
     `;
   }
 
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  const currentTime = getColombiaTimeParts();
+  const currentHour = currentTime.hour;
+  const currentMinute = currentTime.minute;
 
   return `
     <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -204,6 +208,7 @@ function renderIncomeChart(incomeByDay) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           display: false
@@ -220,4 +225,21 @@ function renderIncomeChart(incomeByDay) {
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("es-CO");
+}
+
+function getColombiaTimeParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return {
+    hour: Number(parts.hour || 0),
+    minute: Number(parts.minute || 0)
+  };
 }

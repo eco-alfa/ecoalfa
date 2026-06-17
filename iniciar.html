@@ -123,6 +123,7 @@
       const copyFinalRules = document.querySelector("#copy-final-rules");
 
       let currentUser = null;
+      const COLOMBIA_TIME_ZONE = "America/Bogota";
 
       const bootstrapRulesText = `rules_version = '2';
 
@@ -229,7 +230,7 @@ service cloud.firestore {
       copyFinalRules.addEventListener("click", () => copyRules("reglas finales seguras", finalRulesText));
 
       function log(message, data = null) {
-        const line = `[${new Date().toLocaleTimeString()}] ${message}`;
+        const line = `[${new Date().toLocaleTimeString("es-CO", { timeZone: COLOMBIA_TIME_ZONE })}] ${message}`;
         console.log(line, data || "");
         logs.textContent += `${line}${data ? `\n${JSON.stringify(data, null, 2)}` : ""}\n\n`;
         logs.scrollTop = logs.scrollHeight;
@@ -250,6 +251,20 @@ service cloud.firestore {
         } catch (error) {
           logError(`No se pudieron copiar las ${label}`, error);
         }
+      }
+
+      function getColombiaDateKey(date = new Date()) {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: COLOMBIA_TIME_ZONE,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).formatToParts(date).reduce((acc, part) => {
+          acc[part.type] = part.value;
+          return acc;
+        }, {});
+
+        return `${parts.year}-${parts.month}-${parts.day}`;
       }
 
       onAuthStateChanged(auth, async (user) => {
@@ -362,7 +377,7 @@ service cloud.firestore {
         batch.set(appointmentRef, {
           patientName: "Paciente Demo",
           doctorName: "Dr. Ecoalfa",
-          dateKey: new Date().toISOString().slice(0, 10),
+          dateKey: getColombiaDateKey(),
           time: "09:00",
           reason: "Consulta inicial de prueba",
           status: "Programada",

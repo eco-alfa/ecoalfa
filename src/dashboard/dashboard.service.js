@@ -10,6 +10,7 @@ import { ROLES } from "../auth/roles.js";
 import { db } from "../firebase/config.js";
 
 const KPI_LIMIT = 50;
+const COLOMBIA_TIME_ZONE = "America/Bogota";
 const DEBUG_DASHBOARD = true;
 
 function debugDashboard(label, data = null) {
@@ -112,30 +113,33 @@ async function getAttendedAppointments() {
 
 async function getPendingAppointmentsToday() {
   const today = getTodayKey();
-  const todayKey = today.replace(/-/g, "");
   const statuses = ["Programada", "Confirmada", "En espera", "En Sala de Espera"];
+  const appointments = [];
 
-  try {
-    const appointmentsByDateKeyQuery = query(
-      collection(db, "appointments"),
-      where("dateKey", "==", todayKey),
-      where("status", "in", statuses),
-      limit(20)
-    );
-    const dateKeySnapshot = await getDocs(appointmentsByDateKeyQuery);
-    return dateKeySnapshot.docs
-      .map((appointmentDoc) => ({
-        id: appointmentDoc.id,
-        ...appointmentDoc.data()
-      }))
-      .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
-  } catch (error) {
-    debugDashboard("No se pudo consultar citas por dateKey, intentando por date", error);
+  appointments.push(...await safePendingAppointmentsByField("dateKey", today, statuses));
+  appointments.push(...await safePendingAppointmentsByField("date", today, statuses));
+
+  if (!appointments.length) {
+    appointments.push(...await safePendingAppointmentsByField("dateKey", today.replace(/-/g, ""), statuses));
   }
 
+  return [...new Map(appointments.map((appointment) => [appointment.id, appointment])).values()]
+    .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+}
+
+async function safePendingAppointmentsByField(field, value, statuses) {
+  try {
+    return await getPendingAppointmentsByField(field, value, statuses);
+  } catch (error) {
+    debugDashboard(`No se pudo consultar citas por ${field}=${value}`, error);
+    return [];
+  }
+}
+
+async function getPendingAppointmentsByField(field, value, statuses) {
   const appointmentsQuery = query(
     collection(db, "appointments"),
-    where("date", "==", today),
+    where(field, "==", value),
     where("status", "in", statuses),
     limit(20)
   );
@@ -212,9 +216,7 @@ function getIncomeByDay(invoices) {
 
 function buildEmptyIncomeByDay() {
   return Array.from({ length: 7 }).reduce((days, _, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    days[date.toISOString().slice(0, 10)] = 0;
+    days[getColombiaDateKey(addDays(new Date(), index - 6))] = 0;
     return days;
   }, {});
 }
@@ -224,13 +226,33 @@ function getTimestampDateKey(timestamp) {
     return "";
   }
 
-  return timestamp.toDate().toISOString().slice(0, 10);
+  return getColombiaDateKey(timestamp.toDate());
 }
 
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return getColombiaDateKey();
 }
 
 function getCurrentMonthKey() {
-  return new Date().toISOString().slice(0, 7);
+  return getTodayKey().slice(0, 7);
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function getColombiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }

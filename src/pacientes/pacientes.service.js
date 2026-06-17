@@ -15,6 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { db } from "../firebase/config.js";
 
+const COLOMBIA_TIME_ZONE = "America/Bogota";
 const PATIENTS_PAGE_SIZE = 15;
 const RECORDS_PAGE_SIZE = 10;
 
@@ -186,7 +187,7 @@ export async function getClinicalRecords(patientId, lastVisible = null) {
 
 export async function createClinicalRecord(patientId, record) {
   await addDoc(collection(db, "patients", patientId, "clinicalRecords"), {
-    consultationDate: record.consultationDate || new Date().toISOString().slice(0, 10),
+    consultationDate: record.consultationDate || getColombiaDateKey(),
     doctorName: record.doctorName?.trim() || "",
     reason: record.reason.trim(),
     currentIllness: record.currentIllness.trim(),
@@ -196,7 +197,7 @@ export async function createClinicalRecord(patientId, record) {
     pharmacologicalHistory: record.pharmacologicalHistory?.trim() || "",
     allergies: record.allergies?.trim() || "",
     gynecoObstetricHistory: record.gynecoObstetricHistory?.trim() || "",
-    systemsReview: record.systemsReview.trim(),
+    systemsReview: record.systemsReview?.trim() || "",
     vitalSigns: {
       bloodPressure: record.bloodPressure?.trim() || "",
       heartRate: record.heartRate?.trim() || "",
@@ -216,4 +217,18 @@ export async function createClinicalRecord(patientId, record) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
+}
+
+function getColombiaDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }

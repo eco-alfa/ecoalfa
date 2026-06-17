@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { route: "citas", label: "Citas" },
   { route: "pacientes", label: "Pacientes" },
   { route: "historias", label: "Historias clínicas" },
+  { route: "atencion", label: "Atención médica" },
   { route: "inventario", label: "Inventario" },
   { route: "facturacion", label: "Facturación POS" },
   { route: "usuarios", label: "Usuarios" }

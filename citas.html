@@ -53,6 +53,7 @@
       let currentPatient = null;
       let doctors = [];
       let pendingAuthUser = null;
+      const COLOMBIA_TIME_ZONE = "America/Bogota";
       const DEBUG_PORTAL = true;
 
       function debugPortal(label, data = null) {
@@ -434,7 +435,7 @@
                         <label class="mb-1 block text-sm font-medium">Médico</label>
                         <select id="doctorId" class="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="">Seleccione un médico</option>${doctors.map((doctor) => `<option value="${doctor.id}">${doctor.displayName || doctor.email} · ${doctor.specialty || "Medicina"}</option>`).join("")}</select>
                       </div>
-                      ${inputField("requestedDate", "Fecha deseada", "date", true)}
+                      ${inputField("requestedDate", "Fecha deseada", "date", true, `min="${getColombiaDateKey()}" value="${getColombiaDateKey()}"`)}
                       <div>
                         <label class="mb-1 block text-sm font-medium">Cupo disponible</label>
                         <select id="slotId" required class="w-full rounded-xl border border-slate-300 px-4 py-3"><option value="">Selecciona médico y fecha</option></select>
@@ -713,6 +714,11 @@
           return;
         }
 
+        if (requestedDate < getColombiaDateKey()) {
+          slotSelect.innerHTML = `<option value="">Selecciona una fecha desde hoy Colombia</option>`;
+          return;
+        }
+
         try {
           const snapshot = await getDocs(query(
             collection(db, "appointmentSlots"),
@@ -791,8 +797,8 @@
         root.innerHTML = `<main class="grid min-h-screen place-items-center"><div class="rounded-3xl bg-white p-8 shadow-sm">Cargando portal del paciente...</div></main>`;
       }
 
-      function inputField(id, label, type, required) {
-        return `<label class="block text-sm font-medium">${label}<input id="${id}" type="${type}" ${required ? "required" : ""} class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3" /></label>`;
+      function inputField(id, label, type, required, attributes = "") {
+        return `<label class="block text-sm font-medium">${label}<input id="${id}" type="${type}" ${required ? "required" : ""} ${attributes} class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3" /></label>`;
       }
 
       function selectField(id, label, options) {
@@ -961,9 +967,24 @@
           return "Fecha no disponible";
         }
         return new Intl.DateTimeFormat("es-CO", {
+          timeZone: COLOMBIA_TIME_ZONE,
           dateStyle: "medium",
           timeStyle: "short"
         }).format(timestamp.toDate());
+      }
+
+      function getColombiaDateKey(date = new Date()) {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: COLOMBIA_TIME_ZONE,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).formatToParts(date).reduce((acc, part) => {
+          acc[part.type] = part.value;
+          return acc;
+        }, {});
+
+        return `${parts.year}-${parts.month}-${parts.day}`;
       }
 
       function showAuthMessage(text, type) {

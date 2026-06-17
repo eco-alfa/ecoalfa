@@ -152,6 +152,43 @@ function renderMainView() {
 
               <div class="grid gap-4 sm:grid-cols-2">
                 <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="eps">EPS</label>
+                  <input id="eps" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="bloodType">Tipo de sangre</label>
+                  <select id="bloodType" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                    <option value="">Seleccione</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="emergencyContactName">Contacto de emergencia</label>
+                  <input id="emergencyContactName" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for="emergencyContactPhone">Teléfono de emergencia</label>
+                  <input id="emergencyContactPhone" type="tel" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="allergies">Alergias</label>
+                <textarea id="allergies" rows="2" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"></textarea>
+              </div>
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
                   <label class="mb-1 block text-sm font-medium text-slate-700" for="neighborhood">Barrio</label>
                   <input id="neighborhood" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
                 </div>
@@ -225,6 +262,21 @@ function renderMainView() {
           </div>
         </div>
       </div>
+
+      <div id="patient-success-modal" class="fixed inset-0 z-[60] hidden bg-slate-950/60 p-4 backdrop-blur-sm">
+        <div class="flex min-h-screen items-center justify-center">
+          <div class="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl ring-1 ring-emerald-100">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 class="mt-5 text-xl font-bold text-slate-950">Paciente guardado</h3>
+            <p id="patient-success-text" class="mt-2 text-sm text-slate-500">La ficha del paciente se guardó correctamente.</p>
+            <button id="close-success-modal" class="mt-6 w-full rounded-2xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800" type="button">Entendido</button>
+          </div>
+        </div>
+      </div>
     </section>
   `;
 }
@@ -278,6 +330,11 @@ function bindMainEvents(container) {
   });
 
   container.querySelector("#clear-patient-form").addEventListener("click", () => resetPatientForm(container));
+
+  container.querySelector("#close-success-modal").addEventListener("click", () => {
+    container.querySelector("#patient-success-modal").classList.add("hidden");
+    document.body.style.overflow = "";
+  });
 
   // Búsqueda y paginación en modal
   container.querySelector("#refresh-patients").addEventListener("click", async () => loadPatients(container, true));
@@ -373,10 +430,14 @@ function renderPatientRow(patient) {
       <td class="px-5 py-4 text-slate-600">${patient.phone || patient.email || "Sin contacto"}</td>
       <td class="px-5 py-4">${sourceBadge}</td>
       <td class="px-5 py-4">${portalStatus}</td>
-      <td class="px-5 py-4 text-right">
-        <button data-edit-patient="${patient.id}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Editar</button>
-        ${!patient.authUid ? `<button data-link-patient="${patient.id}" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">Vincular portal</button>` : ""}
-        <a href="#historias" data-open-history="${patient.id}" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">Abrir historia</a>
+      <td class="relative px-5 py-4 text-right">
+        <button data-toggle-actions="${patient.id}" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50" title="Acciones">
+          ⚙
+        </button>
+        <div data-actions-menu="${patient.id}" class="absolute right-5 z-20 mt-2 hidden w-44 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
+          <button data-edit-patient="${patient.id}" class="block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">Editar</button>
+          ${!patient.authUid ? `<button data-link-patient="${patient.id}" class="block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-blue-700 hover:bg-blue-50">Vincular portal</button>` : ""}
+        </div>
       </td>
     </tr>
   `;
@@ -392,6 +453,17 @@ function getSourceBadge(source) {
 }
 
 function bindPatientsTableEvents(container) {
+  container.querySelectorAll("[data-toggle-actions]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const menu = container.querySelector(`[data-actions-menu="${button.dataset.toggleActions}"]`);
+      container.querySelectorAll("[data-actions-menu]").forEach((item) => {
+        if (item !== menu) item.classList.add("hidden");
+      });
+      menu?.classList.toggle("hidden");
+    });
+  });
+
   container.querySelectorAll("[data-edit-patient]").forEach((button) => {
     button.addEventListener("click", () => {
       fillPatientForm(container, button.dataset.editPatient);
@@ -401,15 +473,13 @@ function bindPatientsTableEvents(container) {
     });
   });
 
-  container.querySelectorAll("[data-open-history]").forEach((link) => {
-    link.addEventListener("click", () => {
-      sessionStorage.setItem("ecoalfa:selectedPatientId", link.dataset.openHistory);
-    });
-  });
-
   container.querySelectorAll("[data-link-patient]").forEach((button) => {
     button.addEventListener("click", () => linkPatientToPortal(container, button.dataset.linkPatient));
   });
+
+  document.addEventListener("click", () => {
+    container.querySelectorAll("[data-actions-menu]").forEach((item) => item.classList.add("hidden"));
+  }, { once: true });
 }
 
 async function linkPatientToPortal(container, patientId) {
@@ -488,6 +558,11 @@ function fillPatientForm(container, patientId) {
   form.email.value = patient.email || "";
   form.birthDate.value = patient.birthDate || "";
   form.address.value = patient.address || "";
+  form.eps.value = patient.eps || "";
+  form.bloodType.value = patient.bloodType || "";
+  form.emergencyContactName.value = patient.emergencyContactName || "";
+  form.emergencyContactPhone.value = patient.emergencyContactPhone || "";
+  form.allergies.value = patient.allergies || "";
   form.neighborhood.value = patient.neighborhood || "";
   form.municipality.value = patient.municipality || "";
   form.background.value = patient.background || "";
@@ -526,6 +601,11 @@ async function savePatient(container, form) {
       email: form.email.value,
       birthDate: form.birthDate.value,
       address: form.address.value,
+      eps: form.eps.value,
+      bloodType: form.bloodType.value,
+      emergencyContactName: form.emergencyContactName.value,
+      emergencyContactPhone: form.emergencyContactPhone.value,
+      allergies: form.allergies.value,
       neighborhood: form.neighborhood.value,
       municipality: form.municipality.value,
       gender: gender,
@@ -534,8 +614,11 @@ async function savePatient(container, form) {
       source: "manual"
     });
 
+    const savedPatientName = fullName || "Paciente";
     resetPatientForm(container);
-    showMessage(container, "Paciente guardado correctamente.", "success");
+    container.querySelector("#patient-form-modal").classList.add("hidden");
+    container.querySelector("#patient-success-text").textContent = `${savedPatientName} quedó guardado correctamente en la base de pacientes.`;
+    container.querySelector("#patient-success-modal").classList.remove("hidden");
     
     // Si estábamos en el modal de base, recargar
     if (!container.querySelector("#patient-database-modal").classList.contains("hidden")) {
