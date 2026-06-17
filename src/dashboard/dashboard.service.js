@@ -113,7 +113,7 @@ async function getAttendedAppointments() {
 
 async function getPendingAppointmentsToday() {
   const today = getTodayKey();
-  const statuses = ["Programada", "Confirmada", "En espera", "En Sala de Espera"];
+  const statuses = ["Solicitada", "Programada", "Confirmada", "En espera", "En Sala de Espera"];
   const appointments = [];
 
   appointments.push(...await safePendingAppointmentsByField("dateKey", today, statuses));

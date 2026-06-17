@@ -16,7 +16,7 @@ import {
 import { db } from "../firebase/config.js";
 
 const COLOMBIA_TIME_ZONE = "America/Bogota";
-const ACTIVE_APPOINTMENT_STATUSES = ["Programada", "Confirmada", "En espera", "En Sala de Espera"];
+const ACTIVE_APPOINTMENT_STATUSES = ["Solicitada", "Programada", "Confirmada", "En espera", "En Sala de Espera"];
 
 export const APPOINTMENT_STATUSES = [
   "Solicitada",
