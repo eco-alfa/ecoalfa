@@ -29,6 +29,27 @@ export async function getPosMedicines() {
   }));
 }
 
+export async function searchBillingPatients(searchTerm = "") {
+  const patientsQuery = query(
+    collection(db, "patients"),
+    orderBy("fullName"),
+    limit(80)
+  );
+  const snapshot = await getDocs(patientsQuery);
+  const normalizedTerm = searchTerm.trim().toLowerCase();
+
+  return snapshot.docs
+    .map((patientDoc) => ({
+      id: patientDoc.id,
+      ...patientDoc.data()
+    }))
+    .filter((patient) => !normalizedTerm ||
+      String(patient.fullName || "").toLowerCase().includes(normalizedTerm) ||
+      String(patient.documentNumber || "").toLowerCase().includes(normalizedTerm)
+    )
+    .slice(0, 12);
+}
+
 export async function createInvoice(invoice) {
   const batch = writeBatch(db);
   const invoiceRef = doc(collection(db, "invoices"));
@@ -36,6 +57,9 @@ export async function createInvoice(invoice) {
 
   batch.set(invoiceRef, {
     number: invoice.number,
+    patientId: invoice.patientId || "",
+    authUid: invoice.authUid || "",
+    customerDocument: invoice.customerDocument || "",
     customerName: invoice.customerName.trim() || "Consumidor final",
     paymentType: invoice.paymentType,
     items: invoice.items,

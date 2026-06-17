@@ -537,7 +537,10 @@ function renderRecordsList(records) {
           <h4 class="mt-3 text-lg font-bold text-slate-950">${record.diagnosis || "Consulta médica"}</h4>
           <p class="text-sm text-slate-500">${record.doctorName || "Profesional no especificado"} ${record.cie10 ? `· CIE-10 ${record.cie10}` : ""}</p>
         </div>
-        <button data-print-record="${record.id}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">PDF</button>
+        <div class="flex gap-2">
+          <button data-print-record="${record.id}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">PDF</button>
+          <button data-print-prescription="${record.id}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Prescripción</button>
+        </div>
       </div>
       <div class="grid gap-3 text-sm lg:grid-cols-2">
         ${renderRecordField("Subjetivo", record.reason)}
@@ -601,6 +604,64 @@ function bindPdfButtons() {
       }
     });
   });
+
+  document.querySelectorAll("[data-print-prescription]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = currentRecords.find((item) => item.id === button.dataset.printPrescription);
+      if (record) {
+        printPrescriptionOnly(record);
+      }
+    });
+  });
+}
+
+function printPrescriptionOnly(record) {
+  const printWindow = window.open("", "_blank", "width=800,height=1000");
+  const patientName = selectedPatient?.fullName || "Paciente";
+  const documentNumber = selectedPatient?.documentNumber || "";
+  const now = new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", year: "numeric", month: "long", day: "numeric" });
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Prescripción - ${patientName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 40px; color: #1e293b; }
+          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #148dcc; padding-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: bold; color: #148dcc; }
+          .patient-info { margin-bottom: 30px; }
+          .patient-info h3 { margin: 0 0 12px 0; color: #43aa35; }
+          .patient-info p { margin: 6px 0; font-size: 14px; }
+          .prescription-box { border: 2px solid #148dcc; border-radius: 12px; padding: 30px; min-height: 300px; white-space: pre-wrap; font-size: 16px; line-height: 1.8; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; }
+          @media print { body { margin: 18mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">ECOALFA</div>
+          <div class="patient-info">
+            <h3>Prescripción médica</h3>
+            <p><strong>Paciente:</strong> ${patientName}</p>
+            <p><strong>Documento:</strong> ${documentNumber}</p>
+            <p><strong>Fecha:</strong> ${now}</p>
+            <p><strong>Profesional:</strong> ${record.doctorName || "Médico"}</p>
+          </div>
+        </div>
+
+        <div class="prescription-box">
+${record.prescription || "Sin prescripción"}
+        </div>
+
+        <div class="footer">
+          <p>ECOALFA Medicina Homeopática · Colombia · Zona horaria Bogotá</p>
+        </div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
 }
 
 function printRecord(record) {

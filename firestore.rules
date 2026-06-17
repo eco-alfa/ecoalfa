@@ -90,19 +90,19 @@ service cloud.firestore {
 
     match /inventory/{medicineId} {
       allow read: if isAdmin() || isMedico() || isOperador() || isAsesor();
-      allow create, update: if isAdmin() || isOperador();
+      allow create, update: if isAdmin() || isMedico() || isOperador();
       allow delete: if isAdmin();
 
       match /movements/{movementId} {
         allow read: if isAdmin() || isMedico() || isOperador() || isAsesor();
-        allow create: if isAdmin() || isOperador();
+        allow create: if isAdmin() || isMedico() || isOperador();
         allow update, delete: if isAdmin();
       }
     }
 
     match /invoices/{invoiceId} {
-      allow read: if hasFullAccess() || isOperador() || (signedIn() && (resource == null || resource.data.authUid == request.auth.uid));
-      allow create: if hasFullAccess() || isOperador() || signedIn();
+      allow read: if hasFullAccess() || isMedico() || isOperador() || (signedIn() && (resource == null || resource.data.authUid == request.auth.uid));
+      allow create: if hasFullAccess() || isMedico() || isOperador() || signedIn();
       allow update, delete: if hasFullAccess();
     }
 

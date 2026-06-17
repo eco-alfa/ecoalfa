@@ -1,4 +1,4 @@
-import { PAYMENT_TYPES, createInvoice, getPosMedicines } from "./facturacion.service.js";
+import { PAYMENT_TYPES, createInvoice, getPosMedicines, searchBillingPatients } from "./facturacion.service.js";
 
 let medicines = [];
 let cart = [];
@@ -62,8 +62,18 @@ function renderShell() {
             <h3 class="text-lg font-semibold text-slate-900">Datos de pago</h3>
             <div class="mt-5 space-y-4">
               <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="customer-search">Buscar cliente (cedula/nombre)</label>
+                <div class="flex gap-2">
+                  <input id="customer-search" placeholder="Escribe para buscar o deja vacío para nombre libre" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                  <button id="search-customer" class="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Buscar</button>
+                </div>
+                <div id="customer-results" class="mt-2 max-h-32 overflow-y-auto"></div>
+              </div>
+              <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700" for="customer-name">Cliente</label>
                 <input id="customer-name" placeholder="Consumidor final" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                <input id="customer-id" type="hidden" />
+                <input id="customer-document" type="hidden" />
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700" for="payment-type">Forma de pago</label>
@@ -89,7 +99,10 @@ function renderShell() {
           <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
               <h3 class="text-lg font-semibold text-slate-900">Ticket térmico</h3>
-              <button id="print-ticket" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" type="button">Imprimir</button>
+              <div class="flex gap-2">
+                <button id="print-ticket" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" type="button">Imprimir</button>
+                <button id="print-letter" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" type="button">Factura carta</button>
+              </div>
             </div>
             <div id="ticket-preview" class="ticket-preview mt-5 rounded-xl bg-slate-50 p-4 font-mono text-xs text-slate-800"></div>
           </div>
@@ -107,6 +120,15 @@ function bindPosEvents(container) {
   });
   container.querySelector("#save-invoice").addEventListener("click", async () => saveInvoice(container));
   container.querySelector("#print-ticket").addEventListener("click", () => printTicket());
+  container.querySelector("#print-letter").addEventListener("click", () => printLetterInvoice());
+  container.querySelector("#search-customer").addEventListener("click", async () => searchCustomer(container));
+  container.querySelector("#customer-search").addEventListener("input", async (event) => {
+    if (event.target.value.length >= 2) {
+      await searchCustomer(container);
+    } else {
+      container.querySelector("#customer-results").innerHTML = "";
+    }
+  });
 }
 
 async function loadMedicines(container) {
@@ -127,6 +149,46 @@ function toggleItemFields(container) {
   const itemType = container.querySelector("#item-type").value;
   container.querySelector("#consultation-fields").classList.toggle("hidden", itemType !== "consultation");
   container.querySelector("#medicine-fields").classList.toggle("hidden", itemType !== "medicine");
+}
+
+async function searchCustomer(container) {
+  const searchTerm = container.querySelector("#customer-search").value;
+  const resultsDiv = container.querySelector("#customer-results");
+
+  if (!searchTerm.trim()) {
+    resultsDiv.innerHTML = "";
+    return;
+  }
+
+  resultsDiv.innerHTML = `<div class="text-xs text-slate-500">Buscando...</div>`;
+
+  try {
+    const patients = await searchBillingPatients(searchTerm);
+    resultsDiv.innerHTML = patients.length
+      ? patients.map((patient) => `
+          <button data-select-customer="${patient.id}" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:bg-slate-50">
+            <div class="font-medium text-slate-900">${patient.fullName || "Sin nombre"}</div>
+            <div class="text-xs text-slate-500">${patient.documentNumber || "Sin documento"}</div>
+          </button>
+        `).join("")
+      : `<div class="text-xs text-slate-500">No se encontraron pacientes. Usa el campo Cliente para escribir un nombre libre.</div>`;
+
+    resultsDiv.querySelectorAll("[data-select-customer]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const patientId = button.dataset.selectCustomer;
+        const patient = patients.find((p) => p.id === patientId);
+        if (patient) {
+          container.querySelector("#customer-name").value = patient.fullName || "";
+          container.querySelector("#customer-id").value = patient.id || "";
+          container.querySelector("#customer-document").value = patient.documentNumber || "";
+          container.querySelector("#customer-search").value = "";
+          resultsDiv.innerHTML = "";
+        }
+      });
+    });
+  } catch (error) {
+    resultsDiv.innerHTML = `<div class="text-xs text-red-600">Error al buscar: ${error.message || ""}</div>`;
+  }
 }
 
 function addCartItem(container) {
@@ -242,6 +304,9 @@ function buildInvoicePreview(container) {
 
   return {
     number: generateInvoiceNumber(),
+    patientId: container.querySelector("#customer-id").value || "",
+    authUid: "",
+    customerDocument: container.querySelector("#customer-document").value || "",
     customerName: container.querySelector("#customer-name").value || "Consumidor final",
     paymentType: container.querySelector("#payment-type").value,
     items: cart.map((item) => ({
@@ -284,6 +349,91 @@ function printTicket() {
     <html>
       <head><title>Ticket Ecoalfa</title></head>
       <body style="font-family: monospace; white-space: pre-wrap; width: 80mm; font-size: 12px;">${ticketContent}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+}
+
+function printLetterInvoice() {
+  const invoice = lastInvoice;
+  if (!invoice) {
+    alert("Primero guarda una factura para imprimirla en formato carta.");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank", "width=800,height=1000");
+  const now = new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", year: "numeric", month: "long", day: "numeric" });
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Factura Ecoalfa - ${invoice.number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 40px; color: #1e293b; }
+          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #148dcc; padding-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: bold; color: #148dcc; }
+          .invoice-info { text-align: right; }
+          .invoice-info h2 { margin: 0 0 8px 0; color: #148dcc; }
+          .invoice-info p { margin: 4px 0; font-size: 14px; }
+          .customer-info { margin-bottom: 30px; }
+          .customer-info h3 { margin: 0 0 12px 0; color: #43aa35; }
+          .customer-info p { margin: 6px 0; font-size: 14px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+          th { background: #f1f5f9; font-weight: 600; color: #475569; }
+          .total-row td { font-weight: bold; font-size: 16px; border-top: 2px solid #148dcc; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">ECOALFA</div>
+          <div class="invoice-info">
+            <h2>FACTURA</h2>
+            <p><strong>Número:</strong> ${invoice.number}</p>
+            <p><strong>Fecha:</strong> ${now}</p>
+            <p><strong>Forma de pago:</strong> ${invoice.paymentType}</p>
+          </div>
+        </div>
+
+        <div class="customer-info">
+          <h3>Cliente</h3>
+          <p><strong>Nombre:</strong> ${invoice.customerName}</p>
+          ${invoice.customerDocument ? `<p><strong>Documento:</strong> ${invoice.customerDocument}</p>` : ""}
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th>Cantidad</th>
+              <th>Precio unitario</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoice.items.map((item) => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>$${formatCurrency(item.unitPrice)}</td>
+                <td>$${formatCurrency(item.total)}</td>
+              </tr>
+            `).join("")}
+            <tr class="total-row">
+              <td colspan="3" style="text-align: right;">TOTAL</td>
+              <td>$${formatCurrency(invoice.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>ECOALFA Medicina Homeopática · Colombia · Zona horaria Bogotá</p>
+          <p>Gracias por su compra</p>
+        </div>
+      </body>
     </html>
   `);
   printWindow.document.close();

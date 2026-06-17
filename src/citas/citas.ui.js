@@ -446,6 +446,7 @@ function renderAppointmentsTable(appointments) {
 }
 
 function renderAppointmentRow(appointment) {
+  const patientDisplayName = getAppointmentPatientName(appointment);
   const arrivalInfo = appointment.arrivalTime 
     ? `<span class="text-xs font-medium ${appointment.room ? 'text-blue-600' : 'text-slate-500'}">${appointment.arrivalTime}${appointment.room ? ` · ${appointment.room}` : ''}</span>`
     : `<span class="text-xs text-slate-400">-</span>`;
@@ -457,7 +458,7 @@ function renderAppointmentRow(appointment) {
   return `
     <tr>
       <td class="px-5 py-4 font-semibold text-slate-900">${appointment.time || "--:--"}</td>
-      <td class="px-5 py-4 text-slate-700">${appointment.patientName || "Sin paciente"}</td>
+      <td class="px-5 py-4 text-slate-700">${patientDisplayName || "Sin paciente"}</td>
       <td class="px-5 py-4 text-slate-600">${appointment.doctorName || "Sin médico"}</td>
       <td class="max-w-xs truncate px-5 py-4 text-slate-600">${appointment.reason || "Sin motivo"}</td>
       <td class="px-5 py-4">${renderStatusSelect(appointment)}${modifiedInfo}</td>
@@ -467,6 +468,10 @@ function renderAppointmentRow(appointment) {
       </td>
     </tr>
   `;
+}
+
+function getAppointmentPatientName(appointment) {
+  return appointment.patientName || appointment.fullName || appointment.customerName || appointment.patient?.fullName || "";
 }
 
 function renderStatusSelect(appointment) {
@@ -511,10 +516,11 @@ async function fillAppointmentForm(container, appointmentId) {
   }
 
   form.querySelector("#appointment-id").value = appointment.id;
+  const patientDisplayName = getAppointmentPatientName(appointment);
   form.patientId.value = appointment.patientId || "";
-  form.patientName.value = appointment.patientName || "";
-  form.patientSearch.value = appointment.patientName || "";
-  container.querySelector("#selected-patient").textContent = appointment.patientName ? `Paciente seleccionado: ${appointment.patientName}` : "";
+  form.patientName.value = patientDisplayName;
+  form.patientSearch.value = patientDisplayName;
+  container.querySelector("#selected-patient").textContent = patientDisplayName ? `Paciente seleccionado: ${patientDisplayName}` : "";
   form.doctorId.value = appointment.doctorId || "";
   form.doctorName.value = appointment.doctorName || "";
   form.dateKey.value = appointment.dateKey || selectedDateKey;
@@ -530,9 +536,12 @@ async function fillAppointmentForm(container, appointmentId) {
 async function saveAppointment(container, form) {
   const appointmentId = form.querySelector("#appointment-id").value;
   const slotId = form.querySelector("#slotId").value;
+  const typedPatientName = form.patientSearch.value.trim();
+  const patientName = form.patientName.value.trim() || typedPatientName;
   const payload = {
     patientId: form.patientId.value,
-    patientName: form.patientName.value.trim(),
+    patientName,
+    fullName: patientName,
     doctorId: form.doctorId.value,
     doctorName: form.doctorName.value.trim(),
     dateKey: form.dateKey.value,

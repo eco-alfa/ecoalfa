@@ -33,18 +33,18 @@ function renderShell() {
   const writeAllowed = canWriteInventory();
 
   return `
-    <section class="space-y-6">
+    <section class="space-y-8">
       <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h2 class="text-2xl font-bold text-slate-900">Inventario homeopático</h2>
-          <p class="text-slate-500">Medicamentos, potencias, presentaciones, stock y auditoría de movimientos.</p>
+          <h2 class="text-3xl font-bold text-slate-900">Inventario homeopático</h2>
+          <p class="mt-1 text-base text-slate-500">Medicamentos, potencias, presentaciones, stock y auditoría de movimientos.</p>
         </div>
-        <button id="refresh-inventory" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Actualizar</button>
+        <button id="refresh-inventory" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Actualizar</button>
       </div>
 
-      <div class="grid gap-6 2xl:grid-cols-[420px_1fr]">
-        <form id="medicine-form" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 ${writeAllowed ? "" : "hidden"}">
-          <h3 class="text-lg font-semibold text-slate-900">Medicamento</h3>
+      <div class="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+        <form id="medicine-form" class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200 ${writeAllowed ? "" : "hidden"}">
+          <h3 class="text-xl font-bold text-slate-900">Medicamento</h3>
           <input id="medicine-id" type="hidden" />
           <div class="mt-5 space-y-4">
             ${renderInput("name", "Nombre", "text", true)}
@@ -64,18 +64,18 @@ function renderShell() {
         </form>
 
         <div class="space-y-6">
-          <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-200 p-5">
-              <h3 class="text-lg font-semibold text-slate-900">Medicamentos</h3>
-              <p class="text-sm text-slate-500">Listado paginado de máximo 15 medicamentos por carga.</p>
+          <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
+            <div class="border-b border-slate-200 p-6">
+              <h3 class="text-xl font-bold text-slate-900">Medicamentos</h3>
+              <p class="mt-1 text-sm text-slate-500">Listado paginado de máximo 15 medicamentos por carga.</p>
             </div>
             <div id="inventory-table" class="overflow-x-auto"></div>
-            <div class="border-t border-slate-200 p-4 text-right">
+            <div class="border-t border-slate-200 p-5 text-right">
               <button id="load-more-inventory" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cargar más</button>
             </div>
           </div>
 
-          <div id="movements-panel" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <div id="movements-panel" class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
             ${renderNoMedicineSelected()}
           </div>
         </div>
@@ -88,7 +88,7 @@ function renderInput(id, label, type, required) {
   return `
     <div>
       <label class="mb-1 block text-sm font-medium text-slate-700" for="${id}">${label}</label>
-      <input id="${id}" type="${type}" ${required ? "required" : ""} min="0" step="${type === "number" ? "0.01" : "any"}" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+      <input id="${id}" type="${type}" ${required ? "required" : ""} min="0" step="${type === "number" ? "0.01" : "any"}" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
     </div>
   `;
 }
@@ -139,14 +139,14 @@ function renderInventoryTable(medicines) {
   }
 
   return `
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <table class="min-w-[900px] w-full divide-y divide-slate-200 text-base">
       <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
         <tr>
-          <th class="px-5 py-3">Medicamento</th>
-          <th class="px-5 py-3">Presentación</th>
-          <th class="px-5 py-3">Stock</th>
-          <th class="px-5 py-3">Precio</th>
-          <th class="px-5 py-3 text-right">Acciones</th>
+          <th class="px-6 py-4">Medicamento</th>
+          <th class="px-6 py-4">Presentación</th>
+          <th class="px-6 py-4">Stock</th>
+          <th class="px-6 py-4">Precio</th>
+          <th class="px-6 py-4 text-right">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
@@ -161,18 +161,20 @@ function renderMedicineRow(medicine) {
 
   return `
     <tr>
-      <td class="px-5 py-4">
-        <div class="font-medium text-slate-900">${medicine.name || "Sin nombre"}</div>
-        <div class="text-xs text-slate-500">${medicine.potency || "Sin potencia"}</div>
+      <td class="px-6 py-5">
+        <div class="font-semibold text-slate-900">${medicine.name || "Sin nombre"}</div>
+        <div class="mt-1 text-sm text-slate-500">${medicine.potency || "Sin potencia"}</div>
       </td>
-      <td class="px-5 py-4 text-slate-600">${medicine.presentation || "Sin presentación"}</td>
-      <td class="px-5 py-4">
-        <span class="rounded-full px-3 py-1 text-xs font-medium ${lowStock ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}">${medicine.stock || 0} / mín. ${medicine.minStock || 0}</span>
+      <td class="px-6 py-5 text-slate-600">${medicine.presentation || "Sin presentación"}</td>
+      <td class="px-6 py-5">
+        <span class="rounded-full px-4 py-1.5 text-sm font-semibold ${lowStock ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}">${medicine.stock || 0} / mín. ${medicine.minStock || 0}</span>
       </td>
-      <td class="px-5 py-4 text-slate-600">$${Number(medicine.salePrice || 0).toLocaleString("es-CO")}</td>
-      <td class="px-5 py-4 text-right">
-        ${canWriteInventory() ? `<button data-edit-medicine="${medicine.id}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Editar</button>` : ""}
-        <button data-movements-medicine="${medicine.id}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Movimientos</button>
+      <td class="px-6 py-5 font-semibold text-slate-700">$${Number(medicine.salePrice || 0).toLocaleString("es-CO")}</td>
+      <td class="px-6 py-5 text-right">
+        <div class="inline-flex flex-wrap justify-end gap-2">
+          ${canWriteInventory() ? `<button data-edit-medicine="${medicine.id}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Editar</button>` : ""}
+          <button data-movements-medicine="${medicine.id}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Movimientos</button>
+        </div>
       </td>
     </tr>
   `;
