@@ -5,3 +5,6 @@
 - Permisos Firestore: médicos pueden crear/actualizar inventario y movimientos (salida por venta), y crear facturas. Admin y operador también tienen estos permisos.
 - Facturación POS: permite buscar paciente por cédula/nombre; si no se encuentra, permite escribir nombre libre.
 - Impresión: POS tiene ticket térmico y factura carta; historial clínico tiene PDF completo y prescripción sola.
+- Landing page (`landing.html`) lee su configuración dinámica desde Firestore `config/siteConfig`. Solo admin y médicos pueden editarla desde `admin.html`.
+- Archivos publicitarios (imágenes/videos) se almacenan en Firebase Storage bajo `promos/`; tienen lectura pública y escritura solo para admin/médico.
+- `admin.html` requiere autenticación con rol `admin` o `medico` y `active: true`.

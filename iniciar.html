@@ -78,6 +78,23 @@
             </div>
           </div>
         </section>
+
+        <section class="mt-8 rounded-2xl border border-slate-200 p-6">
+          <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div>
+              <h2 class="text-xl font-bold">Reglas de Firebase Storage</h2>
+              <p class="mt-2 text-sm text-slate-500">Pega estas reglas en Firebase Console para permitir subir imágenes y videos publicitarios.</p>
+            </div>
+            <a class="rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700" href="https://console.firebase.google.com/project/ecoalfa-6f9d1/storage/rules" target="_blank" rel="noreferrer">Abrir Storage en Firebase</a>
+          </div>
+          <div class="mt-6 rounded-2xl bg-slate-50 p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-semibold">storage.rules</h3>
+              <button id="copy-storage-rules" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white" type="button">Copiar</button>
+            </div>
+            <pre id="storage-rules" class="mt-4 max-h-80 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-950 p-4 text-xs text-slate-100"></pre>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -121,6 +138,8 @@
       const finalRules = document.querySelector("#final-rules");
       const copyBootstrapRules = document.querySelector("#copy-bootstrap-rules");
       const copyFinalRules = document.querySelector("#copy-final-rules");
+      const copyStorageRules = document.querySelector("#copy-storage-rules");
+      const storageRules = document.querySelector("#storage-rules");
 
       let currentUser = null;
       const COLOMBIA_TIME_ZONE = "America/Bogota";
@@ -212,6 +231,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /config/{configId} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || isMedico();
+    }
+
     match /indicators/{indicatorId} {
       allow read: if canReadIndicators();
       allow write: if isAdmin();
@@ -223,11 +247,48 @@ service cloud.firestore {
   }
 }`;
 
+      const storageRulesText = `rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return signedIn() && userProfile().data.active == true ? userProfile().data.role : null;
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isMedico() {
+      return role() == 'medico';
+    }
+
+    match /promos/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() || isMedico();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}`;
+
       bootstrapRules.textContent = bootstrapRulesText;
       finalRules.textContent = finalRulesText;
+      storageRules.textContent = storageRulesText;
 
       copyBootstrapRules.addEventListener("click", () => copyRules("reglas temporales bootstrap", bootstrapRulesText));
       copyFinalRules.addEventListener("click", () => copyRules("reglas finales seguras", finalRulesText));
+      copyStorageRules.addEventListener("click", () => copyRules("reglas de Storage", storageRulesText));
 
       function log(message, data = null) {
         const line = `[${new Date().toLocaleTimeString("es-CO", { timeZone: COLOMBIA_TIME_ZONE })}] ${message}`;

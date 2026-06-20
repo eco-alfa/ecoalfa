@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administración Ecoalfa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <div id="app" class="min-h-screen"></div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+      import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+      import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+      import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBs85ZtM0tUI5XYypWTze-8xfPJj3EaV5g",
+        authDomain: "ecoalfa-6f9d1.firebaseapp.com",
+        projectId: "ecoalfa-6f9d1",
+        storageBucket: "ecoalfa-6f9d1.firebasestorage.app",
+        messagingSenderId: "760816764581",
+        appId: "1:760816764581:web:31ef204b23ca5980852f4c",
+        measurementId: "G-77WWNZFNY6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const storage = getStorage(app);
+
+      const appContainer = document.getElementById("app");
+      let currentUser = null;
+      let currentUserProfile = null;
+      let currentConfig = null;
+      let pendingPromoFiles = [];
+
+      const DEFAULT_CONFIG = {
+        companyName: "Ecoalfa",
+        slogan: "su salud es lo más importante",
+        phone: "322 897 1484",
+        whatsappNumber: "573228971484",
+        email: "",
+        address: "Colombia",
+        timezone: "Bogotá",
+        heroTitle: "Tu salud en las mejores manos",
+        heroHighlight: "mejores manos",
+        heroDescription: "En Ecoalfa te acompañamos con una atención cercana, clara y personalizada. Agenda tu cita, resuelve tus dudas y recibe orientación pensada para tu bienestar.",
+        primaryButtonText: "Agendar por WhatsApp",
+        secondaryButtonText: "Ingresar al portal",
+        ctaTitle: "Da el primer paso hacia tu bienestar",
+        ctaDescription: "Estamos en Colombia y trabajamos con hora Bogotá para que tus citas, recordatorios y atención médica estén siempre alineados correctamente.",
+        showPromoModal: true,
+        promoAutoPlay: true,
+        promoInterval: 5000,
+        promoItems: []
+      };
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          renderLogin();
+          return;
+        }
+        currentUser = user;
+        try {
+          const profileSnap = await getDoc(doc(db, "users", user.uid));
+          currentUserProfile = profileSnap.exists() ? profileSnap.data() : null;
+          if (!isAuthorized(currentUserProfile)) {
+            await signOut(auth);
+            renderLogin("No tienes permisos para acceder a esta sección.");
+            return;
+          }
+          await loadConfig();
+          renderAdmin();
+        } catch (error) {
+          console.error("Error verificando usuario", error);
+          renderLogin("No fue posible verificar tu perfil. Intenta de nuevo.");
+        }
+      });
+
+      function isAuthorized(profile) {
+        if (!profile) return false;
+        return profile.active === true && (profile.role === "admin" || profile.role === "medico");
+      }
+
+      function renderLogin(errorMessage = "") {
+        appContainer.innerHTML = `
+          <main class="grid min-h-screen place-items-center p-6">
+            <div class="w-full max-w-md rounded-3xl bg-white p-8 shadow-lg ring-1 ring-slate-200">
+              <div class="mb-6 text-center">
+                <h1 class="text-2xl font-bold text-slate-900">Administración Ecoalfa</h1>
+                <p class="mt-2 text-sm text-slate-500">Solo administradores y médicos pueden ingresar.</p>
+              </div>
+              <form id="login-form" class="space-y-4">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700">Correo electrónico</label>
+                  <input id="login-email" type="email" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700">Contraseña</label>
+                  <input id="login-password" type="password" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                </div>
+                ${errorMessage ? `<p class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">${errorMessage}</p>` : ""}
+                <button type="submit" class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800">Ingresar</button>
+              </form>
+            </div>
+          </main>
+        `;
+
+        document.getElementById("login-form").addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const email = document.getElementById("login-email").value.trim();
+          const password = document.getElementById("login-password").value;
+          try {
+            await signInWithEmailAndPassword(auth, email, password);
+          } catch (error) {
+            const messages = {
+              "auth/invalid-email": "Correo inválido.",
+              "auth/user-not-found": "Usuario no encontrado.",
+              "auth/wrong-password": "Contraseña incorrecta.",
+              "auth/invalid-credential": "Credenciales incorrectas.",
+              "auth/user-disabled": "Usuario deshabilitado."
+            };
+            renderLogin(messages[error.code] || "Error al iniciar sesión.");
+          }
+        });
+      }
+
+      async function loadConfig() {
+        const configRef = doc(db, "config", "siteConfig");
+        const snapshot = await getDoc(configRef);
+        currentConfig = snapshot.exists() ? { ...DEFAULT_CONFIG, ...snapshot.data() } : { ...DEFAULT_CONFIG };
+      }
+
+      async function saveConfig() {
+        const payload = {
+          companyName: document.getElementById("cfg-companyName").value.trim(),
+          slogan: document.getElementById("cfg-slogan").value.trim(),
+          phone: document.getElementById("cfg-phone").value.trim(),
+          whatsappNumber: document.getElementById("cfg-whatsappNumber").value.trim(),
+          email: document.getElementById("cfg-email").value.trim(),
+          address: document.getElementById("cfg-address").value.trim(),
+          timezone: document.getElementById("cfg-timezone").value.trim(),
+          heroTitle: document.getElementById("cfg-heroTitle").value.trim(),
+          heroHighlight: document.getElementById("cfg-heroHighlight").value.trim(),
+          heroDescription: document.getElementById("cfg-heroDescription").value.trim(),
+          primaryButtonText: document.getElementById("cfg-primaryButtonText").value.trim(),
+          secondaryButtonText: document.getElementById("cfg-secondaryButtonText").value.trim(),
+          ctaTitle: document.getElementById("cfg-ctaTitle").value.trim(),
+          ctaDescription: document.getElementById("cfg-ctaDescription").value.trim(),
+          showPromoModal: document.getElementById("cfg-showPromoModal").checked,
+          promoAutoPlay: document.getElementById("cfg-promoAutoPlay").checked,
+          promoInterval: Number(document.getElementById("cfg-promoInterval").value) || 5000,
+          promoItems: currentConfig.promoItems || []
+        };
+
+        const configRef = doc(db, "config", "siteConfig");
+        await setDoc(configRef, {
+          ...payload,
+          updatedAt: serverTimestamp(),
+          updatedBy: {
+            uid: currentUser?.uid || "",
+            name: currentUserProfile?.displayName || currentUser?.email || ""
+          }
+        }, { merge: true });
+
+        currentConfig = payload;
+        showMessage("Configuración guardada correctamente.", "success");
+      }
+
+      function renderAdmin() {
+        const cfg = currentConfig || DEFAULT_CONFIG;
+        appContainer.innerHTML = `
+          <div class="min-h-screen">
+            <header class="bg-white shadow-sm ring-1 ring-slate-200">
+              <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <img src="./assets/ecoalfa-logo.jpeg" alt="Ecoalfa" class="h-10 w-10 rounded-lg object-contain" />
+                  <div>
+                    <h1 class="text-lg font-bold text-slate-900">Administración Ecoalfa</h1>
+                    <p class="text-xs text-slate-500">${currentUserProfile?.displayName || currentUser?.email} · ${currentUserProfile?.role || "Sin rol"}</p>
+                  </div>
+                </div>
+                <div class="flex gap-3">
+                  <a href="./landing.html" target="_blank" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Ver landing</a>
+                  <button id="logout-btn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Salir</button>
+                </div>
+              </div>
+            </header>
+
+            <main class="mx-auto max-w-6xl p-6">
+              <div class="mb-6 rounded-2xl bg-blue-50 p-4 text-sm text-blue-800">
+                <strong>Nota importante:</strong> Los videos e imágenes se almacenan en Firebase Storage. El plan gratuito tiene límites de espacio (5 GB) y ancho de banda. Usa archivos optimizados y videos cortos para no superar la cuota.
+              </div>
+
+              <div class="grid gap-6 lg:grid-cols-[1fr_420px]">
+                <div class="space-y-6">
+                  <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900">Información de la empresa</h2>
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div class="sm:col-span-2">
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Nombre de la empresa</label>
+                        <input id="cfg-companyName" value="${escapeHtml(cfg.companyName)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div class="sm:col-span-2">
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Slogan</label>
+                        <input id="cfg-slogan" value="${escapeHtml(cfg.slogan)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Teléfono</label>
+                        <input id="cfg-phone" value="${escapeHtml(cfg.phone)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">WhatsApp (con código de país)</label>
+                        <input id="cfg-whatsappNumber" value="${escapeHtml(cfg.whatsappNumber)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Correo electrónico</label>
+                        <input id="cfg-email" type="email" value="${escapeHtml(cfg.email)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Ciudad / Dirección</label>
+                        <input id="cfg-address" value="${escapeHtml(cfg.address)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Zona horaria</label>
+                        <input id="cfg-timezone" value="${escapeHtml(cfg.timezone)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900">Contenido principal</h2>
+                    <div class="mt-5 space-y-4">
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Título del hero</label>
+                        <input id="cfg-heroTitle" value="${escapeHtml(cfg.heroTitle)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Texto resaltado del hero</label>
+                        <input id="cfg-heroHighlight" value="${escapeHtml(cfg.heroHighlight)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Descripción del hero</label>
+                        <textarea id="cfg-heroDescription" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">${escapeHtml(cfg.heroDescription)}</textarea>
+                      </div>
+                      <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Texto botón principal</label>
+                          <input id="cfg-primaryButtonText" value="${escapeHtml(cfg.primaryButtonText)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        </div>
+                        <div>
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Texto botón secundario</label>
+                          <input id="cfg-secondaryButtonText" value="${escapeHtml(cfg.secondaryButtonText)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        </div>
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Título CTA</label>
+                        <input id="cfg-ctaTitle" value="${escapeHtml(cfg.ctaTitle)}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Descripción CTA</label>
+                        <textarea id="cfg-ctaDescription" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">${escapeHtml(cfg.ctaDescription)}</textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button id="save-config" class="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800">Guardar configuración</button>
+                  <p id="admin-message" class="hidden rounded-xl px-4 py-3 text-sm"></p>
+                </div>
+
+                <div class="space-y-6">
+                  <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900">Modal publicitario</h2>
+                    <p class="mt-1 text-sm text-slate-500">Imágenes y videos que aparecerán en un modal al abrir la landing page.</p>
+
+                    <div class="mt-5 space-y-4">
+                      <label class="flex items-center gap-3 text-sm text-slate-700">
+                        <input id="cfg-showPromoModal" type="checkbox" ${cfg.showPromoModal ? "checked" : ""} class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+                        Mostrar modal al cargar la landing
+                      </label>
+                      <label class="flex items-center gap-3 text-sm text-slate-700">
+                        <input id="cfg-promoAutoPlay" type="checkbox" ${cfg.promoAutoPlay ? "checked" : ""} class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+                        Cambiar automáticamente de slide
+                      </label>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Intervalo entre slides (ms)</label>
+                        <input id="cfg-promoInterval" type="number" value="${cfg.promoInterval}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Subir imágenes o videos</label>
+                        <input id="promo-files" type="file" accept="image/*,video/*" multiple class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700" />
+                        <p class="mt-1 text-xs text-slate-500">Formatos: JPG, PNG, GIF, MP4, WEBM. Tamaño máximo recomendado: 5 MB.</p>
+                      </div>
+                      <button id="upload-promo" class="w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Subir archivos seleccionados</button>
+
+                      <div id="promo-list" class="space-y-3">
+                        ${renderPromoItems(cfg.promoItems)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        `;
+
+        bindAdminEvents();
+      }
+
+      function renderPromoItems(items) {
+        if (!items || items.length === 0) {
+          return `<p class="text-sm text-slate-500">No hay archivos publicitarios subidos.</p>`;
+        }
+        return items.map((item, index) => `
+          <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+            ${item.type?.startsWith("video") ? `<video src="${item.url}" class="h-16 w-16 rounded-lg object-cover"></video>` : `<img src="${item.url}" alt="" class="h-16 w-16 rounded-lg object-cover" />`}
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-slate-900">${item.name}</p>
+              <p class="text-xs text-slate-500">${item.type || "archivo"}</p>
+            </div>
+            <button data-remove-promo="${index}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
+          </div>
+        `).join("");
+      }
+
+      function bindAdminEvents() {
+        document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
+        document.getElementById("save-config").addEventListener("click", saveConfig);
+        document.getElementById("upload-promo").addEventListener("click", uploadPromoFiles);
+
+        document.querySelectorAll("[data-remove-promo]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const index = Number(button.dataset.removePromo);
+            currentConfig.promoItems.splice(index, 1);
+            document.getElementById("promo-list").innerHTML = renderPromoItems(currentConfig.promoItems);
+            bindAdminEvents();
+            await saveConfig();
+          });
+        });
+
+        document.getElementById("promo-files").addEventListener("change", (event) => {
+          pendingPromoFiles = Array.from(event.target.files);
+        });
+      }
+
+      async function uploadPromoFiles() {
+        if (!pendingPromoFiles.length) {
+          showMessage("Selecciona al menos un archivo.", "error");
+          return;
+        }
+
+        const button = document.getElementById("upload-promo");
+        button.disabled = true;
+        button.textContent = "Subiendo...";
+
+        try {
+          const uploads = await Promise.all(
+            pendingPromoFiles.map(async (file) => {
+              const fileName = `promos/${Date.now()}_${file.name}`;
+              const fileRef = ref(storage, fileName);
+              await uploadBytes(fileRef, file);
+              const downloadUrl = await getDownloadURL(fileRef);
+              return { url: downloadUrl, path: fileName, name: file.name, type: file.type };
+            })
+          );
+
+          currentConfig.promoItems = [...(currentConfig.promoItems || []), ...uploads];
+          document.getElementById("promo-list").innerHTML = renderPromoItems(currentConfig.promoItems);
+          document.getElementById("promo-files").value = "";
+          pendingPromoFiles = [];
+          bindAdminEvents();
+          await saveConfig();
+          showMessage("Archivos subidos y guardados.", "success");
+        } catch (error) {
+          console.error("Error subiendo archivos", error);
+          showMessage("No fue posible subir los archivos. Revisa permisos y tamaño.", "error");
+        } finally {
+          button.disabled = false;
+          button.textContent = "Subir archivos seleccionados";
+        }
+      }
+
+      function showMessage(message, type) {
+        const box = document.getElementById("admin-message");
+        if (!box) return;
+        box.className = `rounded-xl px-4 py-3 text-sm ${type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`;
+        box.textContent = message;
+        box.classList.remove("hidden");
+      }
+
+      function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+    </script>
+  </body>
+</html>
