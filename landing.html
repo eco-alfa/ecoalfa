@@ -883,53 +883,33 @@
         pointer-events: none;
       }
 
-      .floating-video-thumb {
-        position: fixed;
-        bottom: 92px;
-        right: 16px;
-        width: 180px;
-        aspect-ratio: 16 / 9;
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-        background: #000;
-        z-index: 999;
-        cursor: pointer;
-        display: none;
+      @keyframes float-video-in {
+        from { opacity: 0; transform: translateY(20px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
       }
 
-      .floating-video-thumb.active {
-        display: block;
-      }
-
-      .floating-video-thumb video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 14px;
-      }
-
-      .floating-video-thumb span {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.55);
-        color: white;
-        font-size: 0.85rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
+      video.is-floating {
+        position: fixed !important;
+        bottom: 92px !important;
+        right: 16px !important;
+        width: 180px !important;
+        height: auto !important;
+        aspect-ratio: 16 / 9 !important;
+        object-fit: cover !important;
+        border-radius: 14px !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35) !important;
+        z-index: 999 !important;
+        pointer-events: auto !important;
+        animation: float-video-in 0.25s ease forwards;
+        will-change: transform, opacity;
+        backface-visibility: hidden;
       }
 
       @media (max-width: 480px) {
-        .floating-video-thumb {
-          width: 140px;
-          bottom: 84px;
-          right: 12px;
+        video.is-floating {
+          width: 140px !important;
+          bottom: 84px !important;
+          right: 12px !important;
         }
       }
 
@@ -1726,13 +1706,27 @@
       };
 
       async function loadConfig() {
+        let config = { ...DEFAULT_CONFIG };
+
         try {
           const configRef = doc(db, "config", "siteConfig");
           const snapshot = await getDoc(configRef);
-          const config = snapshot.exists() ? { ...DEFAULT_CONFIG, ...snapshot.data() } : DEFAULT_CONFIG;
+          if (snapshot.exists()) {
+            config = { ...DEFAULT_CONFIG, ...snapshot.data() };
+          }
+        } catch (error) {
+          console.warn("No se pudo cargar la configuración de Firestore:", error);
+        }
+
+        try {
           const media = await loadMediaItems();
           config.promoItems = media.promoItems.length ? media.promoItems : (Array.isArray(config.promoItems) ? config.promoItems : []);
           config.galleryItems = media.galleryItems.length ? media.galleryItems : (Array.isArray(config.galleryItems) ? config.galleryItems : []);
+        } catch (error) {
+          console.warn("No se pudieron cargar los medios:", error);
+        }
+
+        try {
           applyConfig(config);
           await setupPromoModal(config);
           await setupGallery(config);
@@ -1740,7 +1734,7 @@
           initFloatingVideoThumb();
           setupPlans(config);
         } catch (error) {
-          console.error("No se pudo cargar la configuración del sitio", error);
+          console.error("Error aplicando configuración:", error);
           applyConfig(DEFAULT_CONFIG);
           await setupPromoModal(DEFAULT_CONFIG);
           await setupGallery(DEFAULT_CONFIG);
@@ -1751,17 +1745,32 @@
       }
 
       async function loadMediaItems() {
-        const fsSnap = await getDocs(collection(db, "siteMedia"));
-        const fsItems = fsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        let fsItems = [];
+        try {
+          const fsSnap = await getDocs(collection(db, "siteMedia"));
+          fsItems = fsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        } catch (e) {
+          console.warn("Error leyendo siteMedia de Firestore:", e);
+        }
 
-        const promoRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/promo"));
-        const promoRtdbItems = promoRtdbSnap.exists()
-          ? Object.entries(promoRtdbSnap.val()).map(([id, item]) => ({ id, ...item, source: "rtdb" }))
-          : [];
-        const galleryRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/gallery"));
-        const galleryRtdbItems = galleryRtdbSnap.exists()
-          ? Object.entries(galleryRtdbSnap.val()).map(([id, item]) => ({ id, ...item, source: "rtdb" }))
-          : [];
+        let promoRtdbItems = [];
+        let galleryRtdbItems = [];
+        try {
+          const promoRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/promo"));
+          promoRtdbItems = promoRtdbSnap.exists()
+            ? Object.entries(promoRtdbSnap.val()).map(([id, item]) => ({ id, ...item, source: "rtdb" }))
+            : [];
+        } catch (e) {
+          console.warn("Error leyendo siteMedia/promo de RTDB:", e);
+        }
+        try {
+          const galleryRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/gallery"));
+          galleryRtdbItems = galleryRtdbSnap.exists()
+            ? Object.entries(galleryRtdbSnap.val()).map(([id, item]) => ({ id, ...item, source: "rtdb" }))
+            : [];
+        } catch (e) {
+          console.warn("Error leyendo siteMedia/gallery de RTDB:", e);
+        }
 
         return {
           promoItems: [...fsItems.filter((item) => item.kind === "promo"), ...promoRtdbItems].sort((a, b) => (a.position || 0) - (b.position || 0)),
@@ -2188,52 +2197,38 @@
         }
       }
 
-      function resetHeroAutoAdvance() {
-        showHeroSlide(heroCurrentSlide);
-        startHeroAutoAdvance();
-      }
-
       let activeFloatingVideo = null;
-      let floatingThumbEl = null;
-      let floatingVideo = null;
-      let ignorePauseEvent = false;
+      let floatingState = false;
 
       function initFloatingVideoThumb() {
-        floatingThumbEl = document.createElement("div");
-        floatingThumbEl.className = "floating-video-thumb";
-        floatingThumbEl.innerHTML = `<video muted playsinline preload="metadata"></video><span>×</span>`;
-        document.body.appendChild(floatingThumbEl);
-        floatingVideo = floatingThumbEl.querySelector("video");
-
-        floatingThumbEl.addEventListener("click", (e) => {
-          if (e.target.closest("span")) {
-            hideFloatingVideoThumb();
-            return;
-          }
-          if (activeFloatingVideo && floatingVideo) {
-            const currentTime = floatingVideo.currentTime;
-            hideFloatingVideoThumb();
-            activeFloatingVideo.currentTime = currentTime;
-            activeFloatingVideo.play().then(() => {
-              activeFloatingVideo.scrollIntoView({ behavior: "smooth", block: "center" });
-            }).catch(() => {
-              activeFloatingVideo.scrollIntoView({ behavior: "smooth", block: "center" });
-            });
-          }
-        });
-
         document.querySelectorAll("video").forEach((video) => {
-          if (video.closest(".hero-card") || video === floatingVideo) return;
+          if (video.closest(".hero-card")) return;
           video.addEventListener("play", () => {
             activeFloatingVideo = video;
             checkFloatingVideoVisibility();
           });
           video.addEventListener("pause", () => {
-            if (ignorePauseEvent) return;
             if (activeFloatingVideo === video) {
-              hideFloatingVideoThumb();
+              video.classList.remove("is-floating");
+              activeFloatingVideo = null;
+              floatingState = false;
             }
           });
+        });
+
+        document.addEventListener("pointerdown", (e) => {
+          const video = e.target.closest("video.is-floating");
+          if (video) {
+            const rect = video.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const controlsHeight = 44;
+            if (y > rect.height - controlsHeight) return;
+            e.preventDefault();
+            video.classList.remove("is-floating");
+            activeFloatingVideo = video;
+            floatingState = false;
+            video.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
         });
 
         let ticking = false;
@@ -2249,51 +2244,22 @@
       }
 
       function checkFloatingVideoVisibility() {
-        if (!activeFloatingVideo || activeFloatingVideo.paused || !floatingVideo) {
-          hideFloatingVideoThumb();
-          return;
-        }
+        if (!activeFloatingVideo || activeFloatingVideo.paused) return;
+
         const rect = activeFloatingVideo.getBoundingClientRect();
-        const visible = rect.top < window.innerHeight && rect.bottom > 0 && rect.left < window.innerWidth && rect.right > 0;
-        if (visible) {
-          hideFloatingVideoThumb();
-          if (activeFloatingVideo) {
-            activeFloatingVideo.play().catch(() => {});
-          }
-        } else if (!floatingThumbEl.classList.contains("active")) {
-          showFloatingVideoThumb();
-        }
-      }
+        const buffer = 100;
+        const outOfView = rect.bottom < -buffer || rect.top > window.innerHeight + buffer || rect.right < -buffer || rect.left > window.innerWidth + buffer;
 
-      function showFloatingVideoThumb() {
-        if (!activeFloatingVideo || !floatingVideo) return;
-        const currentTime = activeFloatingVideo.currentTime;
-        ignorePauseEvent = true;
-        try { activeFloatingVideo.pause(); } catch (err) {}
-        ignorePauseEvent = false;
-        floatingVideo.src = activeFloatingVideo.src;
-        floatingVideo.poster = activeFloatingVideo.poster || "";
-        floatingVideo.onloadedmetadata = () => {
-          floatingVideo.currentTime = currentTime;
-          floatingVideo.play().catch(() => {});
-        };
-        floatingThumbEl.classList.add("active");
-      }
-
-      function hideFloatingVideoThumb() {
-        if (!floatingThumbEl) return;
-        floatingThumbEl.classList.remove("active");
-        if (floatingVideo) {
-          try {
-            floatingVideo.pause();
-            floatingVideo.src = "";
-            floatingVideo.onloadedmetadata = null;
-          } catch (err) {}
+        if (outOfView && !floatingState) {
+          activeFloatingVideo.classList.add("is-floating");
+          floatingState = true;
+        } else if (!outOfView && floatingState) {
+          activeFloatingVideo.classList.remove("is-floating");
+          floatingState = false;
         }
       }
 
       function setupPlans(config) {
-        const plans = config.plans || [];
         const grid = document.getElementById("plans-grid");
         if (!grid) return;
 
