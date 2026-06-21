@@ -33,6 +33,7 @@
       let currentUserProfile = null;
       let currentConfig = null;
       let pendingPromoFiles = [];
+      let pendingGalleryFiles = [];
 
       const DEFAULT_CONFIG = {
         companyName: "Ecoalfa",
@@ -53,6 +54,7 @@
         promoAutoPlay: true,
         promoInterval: 5000,
         promoItems: [],
+        galleryItems: [],
         plansSectionTitle: "Nuestros planes",
         plansSectionDescription: "Elige el plan que se ajuste a tus necesidades y comienza a cuidar tu salud.",
         plansButtonText: "Afiliarme",
@@ -179,6 +181,7 @@
           promoAutoPlay: document.getElementById("cfg-promoAutoPlay").checked,
           promoInterval: Number(document.getElementById("cfg-promoInterval").value) || 5000,
           promoItems: currentConfig.promoItems || [],
+          galleryItems: currentConfig.galleryItems || [],
           plansSectionTitle: document.getElementById("cfg-plansSectionTitle").value.trim(),
           plansSectionDescription: document.getElementById("cfg-plansSectionDescription").value.trim(),
           plansButtonText: document.getElementById("cfg-plansButtonText").value.trim(),
@@ -414,7 +417,32 @@
                       </div>
 
                       <div id="promo-list" class="space-y-3">
-                        ${renderPromoItems(cfg.promoItems)}
+                        ${renderPromoItems(cfg.promoItems, "promo")}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900">Galería de Nosotros</h2>
+                    <p class="mt-1 text-sm text-slate-500">Imágenes y videos fijos que aparecen en la sección Nosotros de la landing.</p>
+
+                    <div class="mt-5 space-y-4">
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">URL de imagen o video</label>
+                        <input id="gallery-url" type="text" placeholder="https://..." class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                      </div>
+                      <button id="add-gallery-url" class="w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Agregar por URL</button>
+
+                      <div class="border-t border-slate-200 pt-4">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">O subir archivo directamente</p>
+                        <div class="mt-2">
+                          <input id="gallery-files" type="file" accept="image/*,video/*" multiple class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700" />
+                        </div>
+                        <button id="upload-gallery" class="mt-2 w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">Subir archivos</button>
+                      </div>
+
+                      <div id="gallery-list" class="space-y-3">
+                        ${renderPromoItems(cfg.galleryItems, "gallery")}
                       </div>
                     </div>
                   </div>
@@ -427,9 +455,9 @@
         bindAdminEvents();
       }
 
-      function renderPromoItems(items) {
+      function renderPromoItems(items, listType = "promo") {
         if (!items || items.length === 0) {
-          return `<p class="text-sm text-slate-500">No hay promociones agregadas.</p>`;
+          return `<p class="text-sm text-slate-500">No hay elementos agregados.</p>`;
         }
         return items.map((item, index) => {
           let thumbnail = "";
@@ -440,6 +468,7 @@
           } else {
             thumbnail = `<img src="${item.url}" alt="" class="h-16 w-16 rounded-lg object-cover" />`;
           }
+          const removeAttr = listType === "promo" ? "data-remove-promo" : "data-remove-gallery";
           return `
             <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
               ${thumbnail}
@@ -447,7 +476,7 @@
                 <p class="truncate text-sm font-medium text-slate-900">${item.name}</p>
                 <p class="text-xs text-slate-500">${item.type || "imagen"}</p>
               </div>
-              <button data-remove-promo="${index}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
+              <button ${removeAttr}="${index}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
             </div>
           `;
         }).join("");
@@ -458,12 +487,24 @@
         document.getElementById("save-config").addEventListener("click", saveConfig);
         document.getElementById("upload-promo").addEventListener("click", uploadPromoFiles);
         document.getElementById("add-promo-url").addEventListener("click", addPromoUrl);
+        document.getElementById("upload-gallery").addEventListener("click", uploadGalleryFiles);
+        document.getElementById("add-gallery-url").addEventListener("click", addGalleryUrl);
 
         document.querySelectorAll("[data-remove-promo]").forEach((button) => {
           button.addEventListener("click", async () => {
             const index = Number(button.dataset.removePromo);
             currentConfig.promoItems.splice(index, 1);
-            document.getElementById("promo-list").innerHTML = renderPromoItems(currentConfig.promoItems);
+            document.getElementById("promo-list").innerHTML = renderPromoItems(currentConfig.promoItems, "promo");
+            bindAdminEvents();
+            await saveConfig();
+          });
+        });
+
+        document.querySelectorAll("[data-remove-gallery]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const index = Number(button.dataset.removeGallery);
+            currentConfig.galleryItems.splice(index, 1);
+            document.getElementById("gallery-list").innerHTML = renderPromoItems(currentConfig.galleryItems, "gallery");
             bindAdminEvents();
             await saveConfig();
           });
@@ -471,6 +512,10 @@
 
         document.getElementById("promo-files").addEventListener("change", (event) => {
           pendingPromoFiles = Array.from(event.target.files);
+        });
+
+        document.getElementById("gallery-files").addEventListener("change", (event) => {
+          pendingGalleryFiles = Array.from(event.target.files);
         });
       }
 
@@ -495,6 +540,53 @@
         bindAdminEvents();
         await saveConfig();
         showMessage("URL agregada correctamente.", "success");
+      }
+
+      async function addGalleryUrl() {
+        const input = document.getElementById("gallery-url");
+        const url = input.value.trim();
+        if (!url || !isValidUrl(url)) {
+          showMessage("Ingresa una URL válida.", "error");
+          return;
+        }
+        const item = buildPromoItemFromUrl(url);
+        currentConfig.galleryItems = [...(currentConfig.galleryItems || []), item];
+        document.getElementById("gallery-list").innerHTML = renderPromoItems(currentConfig.galleryItems, "gallery");
+        input.value = "";
+        bindAdminEvents();
+        await saveConfig();
+        showMessage("URL de galería agregada.", "success");
+      }
+
+      async function uploadGalleryFiles() {
+        if (!pendingGalleryFiles.length) {
+          showMessage("Selecciona archivos.", "error");
+          return;
+        }
+        const button = document.getElementById("upload-gallery");
+        button.disabled = true;
+        button.textContent = "Comprimiendo...";
+        try {
+          const uploads = await Promise.all(
+            pendingGalleryFiles.map(async (file) => {
+              const base64 = await processFile(file);
+              return { url: base64, name: file.name, type: file.type?.startsWith("video") ? "video" : "image" };
+            })
+          );
+          currentConfig.galleryItems = [...(currentConfig.galleryItems || []), ...uploads];
+          document.getElementById("gallery-list").innerHTML = renderPromoItems(currentConfig.galleryItems, "gallery");
+          document.getElementById("gallery-files").value = "";
+          pendingGalleryFiles = [];
+          bindAdminEvents();
+          await saveConfig();
+          showMessage("Archivos de galería guardados.", "success");
+        } catch (error) {
+          console.error(error);
+          showMessage("Error subiendo a galería.", "error");
+        } finally {
+          button.disabled = false;
+          button.textContent = "Subir archivos";
+        }
       }
 
       function isValidUrl(string) {
