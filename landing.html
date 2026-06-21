@@ -148,10 +148,12 @@
       }
 
       .promo-slide img,
-      .promo-slide video {
+      .promo-slide video,
+      .promo-slide iframe {
         width: 100%;
         height: 100%;
         object-fit: contain;
+        border: none;
       }
 
       .promo-controls {
@@ -1312,14 +1314,21 @@
         const slider = document.getElementById("promo-slider");
         const dots = document.getElementById("promo-dots");
 
-        slider.innerHTML = items.map((item, index) => `
-          <div class="promo-slide ${index === 0 ? "active" : ""}" data-slide="${index}">
-            ${item.type?.startsWith("video")
-              ? `<video src="${item.url}" autoplay muted playsinline loop controls></video>`
-              : `<img src="${item.url}" alt="${item.name || ""}" />`
-            }
-          </div>
-        `).join("");
+        slider.innerHTML = items.map((item, index) => {
+          let media = "";
+          if (item.type === "video/youtube") {
+            media = `<iframe src="${item.url}?autoplay=1&mute=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+          } else if (item.type?.startsWith("video")) {
+            media = `<video src="${item.url}" autoplay muted playsinline loop controls></video>`;
+          } else {
+            media = `<img src="${item.url}" alt="${item.name || ""}" />`;
+          }
+          return `
+            <div class="promo-slide ${index === 0 ? "active" : ""}" data-slide="${index}">
+              ${media}
+            </div>
+          `;
+        }).join("");
 
         dots.innerHTML = items.map((_, index) => `
           <button class="promo-dot ${index === 0 ? "active" : ""}" data-dot="${index}" aria-label="Ver slide ${index + 1}"></button>

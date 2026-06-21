@@ -1,0 +1,15 @@
+[
+  {
+    "origin": ["https://ecoalfa-sis.github.io"],
+    "method": ["GET", "POST", "PUT", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "X-Firebase-Storage-Version",
+      "X-Goog-Upload-Protocol",
+      "Access-Control-Allow-Origin"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

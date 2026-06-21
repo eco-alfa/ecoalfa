@@ -13,7 +13,6 @@
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
       import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
       import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-      import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyBs85ZtM0tUI5XYypWTze-8xfPJj3EaV5g",
@@ -28,7 +27,6 @@
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
       const db = getFirestore(app);
-      const storage = getStorage(app);
 
       const appContainer = document.getElementById("app");
       let currentUser = null;
@@ -191,7 +189,7 @@
 
             <main class="mx-auto max-w-6xl p-6">
               <div class="mb-6 rounded-2xl bg-blue-50 p-4 text-sm text-blue-800">
-                <strong>Nota importante:</strong> Los videos e imágenes se almacenan en Firebase Storage. El plan gratuito tiene límites de espacio (5 GB) y ancho de banda. Usa archivos optimizados y videos cortos para no superar la cuota.
+                <strong>Nota importante:</strong> Las imágenes se guardan en Firestore como base64 (máximo 500 KB cada una). Los videos se agregan mediante URL externa (YouTube, etc.) porque requieren mucho espacio.
               </div>
 
               <div class="grid gap-6 lg:grid-cols-[1fr_420px]">
@@ -288,12 +286,28 @@
                         <label class="mb-1 block text-sm font-medium text-slate-700">Intervalo entre slides (ms)</label>
                         <input id="cfg-promoInterval" type="number" value="${cfg.promoInterval}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
                       </div>
-                      <div>
-                        <label class="mb-1 block text-sm font-medium text-slate-700">Subir imágenes o videos</label>
-                        <input id="promo-files" type="file" accept="image/*,video/*" multiple class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700" />
-                        <p class="mt-1 text-xs text-slate-500">Formatos: JPG, PNG, GIF, MP4, WEBM. Tamaño máximo recomendado: 5 MB.</p>
+
+                      <div class="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">
+                        <strong>Opción rápida:</strong> pega una URL de imagen o video. Puedes subir tus archivos a GitHub, Imgur, Cloudinary, YouTube, etc. y pegar aquí el enlace.
                       </div>
-                      <button id="upload-promo" class="w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Subir archivos seleccionados</button>
+
+                      <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">URL de imagen o video</label>
+                        <input id="promo-url" type="text" placeholder="https://..." class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        <p class="mt-1 text-xs text-slate-500">Videos de YouTube: usa la URL completa o la URL de embed.</p>
+                      </div>
+                      <button id="add-promo-url" class="w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Agregar por URL</button>
+
+                      <div class="border-t border-slate-200 pt-4">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">O subir imagen directamente</p>
+                        <div class="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                          Máximo 500 KB por imagen. Se guarda en Firestore como base64, no necesita Storage.
+                        </div>
+                        <div class="mt-2">
+                          <input id="promo-files" type="file" accept="image/*" multiple class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700" />
+                        </div>
+                        <button id="upload-promo" class="mt-2 w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">Subir imágenes</button>
+                      </div>
 
                       <div id="promo-list" class="space-y-3">
                         ${renderPromoItems(cfg.promoItems)}
@@ -311,24 +325,35 @@
 
       function renderPromoItems(items) {
         if (!items || items.length === 0) {
-          return `<p class="text-sm text-slate-500">No hay archivos publicitarios subidos.</p>`;
+          return `<p class="text-sm text-slate-500">No hay promociones agregadas.</p>`;
         }
-        return items.map((item, index) => `
-          <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
-            ${item.type?.startsWith("video") ? `<video src="${item.url}" class="h-16 w-16 rounded-lg object-cover"></video>` : `<img src="${item.url}" alt="" class="h-16 w-16 rounded-lg object-cover" />`}
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-slate-900">${item.name}</p>
-              <p class="text-xs text-slate-500">${item.type || "archivo"}</p>
+        return items.map((item, index) => {
+          let thumbnail = "";
+          if (item.type === "video/youtube") {
+            thumbnail = `<div class="flex h-16 w-16 items-center justify-center rounded-lg bg-red-100 text-red-600 font-bold text-xs">YouTube</div>`;
+          } else if (item.type?.startsWith("video")) {
+            thumbnail = `<video src="${item.url}" class="h-16 w-16 rounded-lg object-cover"></video>`;
+          } else {
+            thumbnail = `<img src="${item.url}" alt="" class="h-16 w-16 rounded-lg object-cover" />`;
+          }
+          return `
+            <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+              ${thumbnail}
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-slate-900">${item.name}</p>
+                <p class="text-xs text-slate-500">${item.type || "imagen"}</p>
+              </div>
+              <button data-remove-promo="${index}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
             </div>
-            <button data-remove-promo="${index}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
-          </div>
-        `).join("");
+          `;
+        }).join("");
       }
 
       function bindAdminEvents() {
         document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
         document.getElementById("save-config").addEventListener("click", saveConfig);
         document.getElementById("upload-promo").addEventListener("click", uploadPromoFiles);
+        document.getElementById("add-promo-url").addEventListener("click", addPromoUrl);
 
         document.querySelectorAll("[data-remove-promo]").forEach((button) => {
           button.addEventListener("click", async () => {
@@ -345,24 +370,82 @@
         });
       }
 
+      async function addPromoUrl() {
+        const input = document.getElementById("promo-url");
+        const url = input.value.trim();
+
+        if (!url) {
+          showMessage("Ingresa una URL válida.", "error");
+          return;
+        }
+
+        if (!isValidUrl(url)) {
+          showMessage("La URL no es válida.", "error");
+          return;
+        }
+
+        const item = buildPromoItemFromUrl(url);
+        currentConfig.promoItems = [...(currentConfig.promoItems || []), item];
+        document.getElementById("promo-list").innerHTML = renderPromoItems(currentConfig.promoItems);
+        input.value = "";
+        bindAdminEvents();
+        await saveConfig();
+        showMessage("URL agregada correctamente.", "success");
+      }
+
+      function isValidUrl(string) {
+        try {
+          new URL(string);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function buildPromoItemFromUrl(url) {
+        const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/;
+        const match = url.match(youtubeRegex);
+        if (match) {
+          return {
+            url: `https://www.youtube.com/embed/${match[1]}`,
+            name: `YouTube video (${match[1]})`,
+            type: "video/youtube",
+            originalUrl: url
+          };
+        }
+        const extension = url.split(".").pop().toLowerCase().split("?")[0];
+        const videoTypes = ["mp4", "webm", "ogg", "mov"];
+        const imageTypes = ["jpg", "jpeg", "png", "gif", "webp", "svg"];
+        const type = videoTypes.includes(extension) ? "video/mp4" : imageTypes.includes(extension) ? "image" : "image";
+        return { url, name: url.split("/").pop() || "Promoción", type };
+      }
+
       async function uploadPromoFiles() {
         if (!pendingPromoFiles.length) {
-          showMessage("Selecciona al menos un archivo.", "error");
+          showMessage("Selecciona al menos una imagen.", "error");
+          return;
+        }
+
+        const oversized = pendingPromoFiles.filter((file) => file.size > 500 * 1024);
+        if (oversized.length > 0) {
+          showMessage("Algunas imágenes superan los 500 KB. Comprímelas antes de subir.", "error");
           return;
         }
 
         const button = document.getElementById("upload-promo");
         button.disabled = true;
-        button.textContent = "Subiendo...";
+        button.textContent = "Convirtiendo...";
 
         try {
           const uploads = await Promise.all(
             pendingPromoFiles.map(async (file) => {
-              const fileName = `promos/${Date.now()}_${file.name}`;
-              const fileRef = ref(storage, fileName);
-              await uploadBytes(fileRef, file);
-              const downloadUrl = await getDownloadURL(fileRef);
-              return { url: downloadUrl, path: fileName, name: file.name, type: file.type };
+              const base64 = await fileToBase64(file);
+              return {
+                url: base64,
+                name: file.name,
+                type: file.type || "image",
+                size: file.size
+              };
             })
           );
 
@@ -372,14 +455,23 @@
           pendingPromoFiles = [];
           bindAdminEvents();
           await saveConfig();
-          showMessage("Archivos subidos y guardados.", "success");
+          showMessage("Imágenes guardadas correctamente.", "success");
         } catch (error) {
-          console.error("Error subiendo archivos", error);
-          showMessage("No fue posible subir los archivos. Revisa permisos y tamaño.", "error");
+          console.error("Error procesando imágenes", error);
+          showMessage("No fue posible procesar las imágenes. Intenta con archivos más pequeños.", "error");
         } finally {
           button.disabled = false;
-          button.textContent = "Subir archivos seleccionados";
+          button.textContent = "Subir imágenes";
         }
+      }
+
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       }
 
       function showMessage(message, type) {
