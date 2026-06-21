@@ -25,6 +25,7 @@
 
       html {
         scroll-behavior: smooth;
+        scroll-padding-top: 100px;
       }
 
       body {
@@ -1477,7 +1478,7 @@
                 </svg>
               </div>
               <h3>Atención oportuna</h3>
-              <p>Trabajamos con hora Bogotá para que tu cita, recordatorios y atención estén siempre sincronizados.</p>
+              <p>Trabajamos para que tu cita, recordatorios y atención estén siempre sincronizados.</p>
             </div>
             <div class="service-card">
               <div class="service-icon green">
@@ -1526,7 +1527,7 @@
                 </svg>
                 <div>
                   <strong>Atención en Colombia</strong>
-                  <span>Zona horaria Bogotá y canales de comunicación claros.</span>
+                  <span>Zona horaria Bucaramanga y canales de comunicación claros.</span>
                 </div>
               </div>
             </div>
@@ -1561,7 +1562,7 @@
           <div class="cta-inner">
             <h2 id="cta-title">Da el primer paso hacia tu bienestar</h2>
             <p id="cta-description">
-              Estamos en Colombia y trabajamos con hora Bogotá para que tus citas, recordatorios y
+              Estamos en Colombia y trabajamos para que tus citas, recordatorios y
               atención médica estén siempre alineados correctamente.
             </p>
             <div class="cta-actions">
@@ -1605,7 +1606,7 @@
           <div class="footer-col">
             <h4>Contacto</h4>
             <a id="footer-whatsapp" href="https://wa.me/573052209603" target="_blank" rel="noopener noreferrer">WhatsApp 322 897 1484</a>
-            <a id="footer-address" href="#">Colombia · Hora Bogotá</a>
+            <a id="footer-address" href="#">Colombia · Bucaramanga</a>
           </div>
         </div>
         <div class="footer-bottom">
@@ -1663,14 +1664,14 @@
         whatsappNumber: "573052209603",
         email: "",
         address: "Colombia",
-        timezone: "Bogotá",
+        timezone: "Bucaramanga",
         heroTitle: "Tu salud en las mejores manos",
         heroHighlight: "mejores manos",
         heroDescription: "En Ecoalfa te acompañamos con una atención cercana, clara y personalizada. Agenda tu cita, resuelve tus dudas y recibe orientación pensada para tu bienestar.",
         primaryButtonText: "Agendar por WhatsApp",
         secondaryButtonText: "Ingresar al portal",
         ctaTitle: "Da el primer paso hacia tu bienestar",
-        ctaDescription: "Estamos en Colombia y trabajamos con hora Bogotá para que tus citas, recordatorios y atención médica estén siempre alineados correctamente.",
+        ctaDescription: "Estamos en Colombia y trabajamos para que tus citas, recordatorios y atención médica estén siempre alineados correctamente.",
         showPromoModal: true,
         promoAutoPlay: true,
         promoInterval: 5000,
@@ -2255,6 +2256,7 @@
       }
 
       function setupPlans(config) {
+        const plans = config.plans || [];
         const grid = document.getElementById("plans-grid");
         if (!grid) return;
 
