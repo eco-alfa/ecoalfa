@@ -677,7 +677,7 @@
         position: relative;
         z-index: 1;
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 24px;
       }
 
@@ -730,8 +730,63 @@
       .service-card p {
         font-size: 0.95rem;
         color: var(--text-light);
-        margin: 0;
+        margin: 0 0 16px;
         line-height: 1.6;
+      }
+
+      .service-card p:last-child {
+        margin-bottom: 0;
+      }
+
+      .service-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .service-list li {
+        position: relative;
+        padding-left: 22px;
+        font-size: 0.95rem;
+        color: var(--text-light);
+        line-height: 1.5;
+      }
+
+      .service-list li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 7px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--eco-blue);
+      }
+
+      .service-list li strong {
+        display: block;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .service-list li span {
+        display: block;
+        color: var(--text-light);
+      }
+
+      .service-list.compact {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px 24px;
+      }
+
+      @media (max-width: 640px) {
+        .service-list.compact {
+          grid-template-columns: 1fr;
+        }
       }
 
       /* Info section */
@@ -1426,68 +1481,88 @@
         <div class="bg-blob bg-blob-green services-blob" aria-hidden="true"></div>
         <div class="container">
           <div class="section-header">
-            <h2>Nuestros servicios</h2>
-            <p>Soluciones de salud pensadas para ti y tu familia, con tecnología y calidad humana.</p>
+            <h2>Portafolio de servicios</h2>
+            <p>En Ecoalfa Salud brindamos atención integral, oportuna y de calidad, con tecnología confiable y personal capacitado para cuidar tu salud y la de tu familia.</p>
           </div>
           <div class="services-grid">
             <div class="service-card">
               <div class="service-icon blue">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z"/>
-                  <path d="M9 10h6M12 7v6"/>
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                 </svg>
               </div>
-              <h3>Consulta médica</h3>
-              <p>Atención integral, escucha activa y acompañamiento para orientar tu proceso de salud.</p>
+              <h3>🩺 Consultas médicas</h3>
+              <ul class="service-list">
+                <li>
+                  <strong>Medicina General</strong>
+                  <span>Atención integral, diagnóstico, tratamiento y seguimiento de enfermedades comunes; prevención y promoción de la salud.</span>
+                </li>
+                <li>
+                  <strong>Consulta Especializada – Medicina Interna</strong>
+                  <span>Valoración detallada, manejo de patologías crónicas y sistémicas en adultos, seguimiento personalizado.</span>
+                </li>
+              </ul>
             </div>
             <div class="service-card">
               <div class="service-icon green">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M8 2v4M16 2v4M3 10h18"/>
-                  <rect x="3" y="4" width="18" height="18" rx="3"/>
-                  <path d="m8 15 2.5 2.5L16 12"/>
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                 </svg>
               </div>
-              <h3>Agenda fácil</h3>
-              <p>Solicita tu cita desde el portal o escríbenos por WhatsApp para recibir orientación inmediata.</p>
+              <h3>🔍 Ecografías</h3>
+              <p>Estudios de imagen seguros y no invasivos:</p>
+              <ul class="service-list compact">
+                <li>Abdomen total</li>
+                <li>Tiroides</li>
+                <li>Mama</li>
+                <li>Partes blandas</li>
+                <li>Pélvica</li>
+                <li>Transvaginal</li>
+                <li>Obstétricas</li>
+                <li>Próstata</li>
+                <li>Testicular</li>
+              </ul>
             </div>
             <div class="service-card">
               <div class="service-icon blue">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v18M5 8h14M7 16h10"/>
-                  <path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
+                  <path d="M9 3h6M9 3v4l-6 8h18l-6-8V3"/>
+                  <path d="M12 12v9"/>
                 </svg>
               </div>
-              <h3>Historia clínica</h3>
-              <p>Registro organizado de tus consultas para mantener continuidad y claridad en tu atención.</p>
+              <h3>🧪 Laboratorio clínico</h3>
+              <ul class="service-list">
+                <li>Toma de muestras para análisis clínicos</li>
+                <li>Procesamiento y resultados confiables</li>
+                <li>Cumplimiento estricto de normas de bioseguridad</li>
+              </ul>
             </div>
             <div class="service-card">
               <div class="service-icon green">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
+                  <path d="M9 2h6M9 2v2M15 2v2M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+                  <path d="M9 14l2 2 4-4"/>
                 </svg>
               </div>
-              <h3>Prescripción médica</h3>
-              <p>Recibe tu fórmula médica de forma clara, con indicaciones y seguimiento profesional.</p>
-            </div>
-            <div class="service-card">
-              <div class="service-icon blue">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 6v6l4 2"/>
-                </svg>
-              </div>
-              <h3>Atención oportuna</h3>
-              <p>Trabajamos para que tu cita, recordatorios y atención estén siempre sincronizados.</p>
-            </div>
-            <div class="service-card">
-              <div class="service-icon green">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-              </div>
-              <h3>Acompañamiento continuo</h3>
-              <p>Estamos conectados por WhatsApp para resolver tus dudas y guiarte en tu bienestar.</p>
+              <h3>💉 Procedimientos ambulatorios</h3>
+              <ul class="service-list">
+                <li>
+                  <strong>Fleboterapia regenerativa</strong>
+                  <span>Procedimiento médico especializado para regenerar la pared vascular, restaurar la función valvular y tratar las venas varicosas, insuficiencia venosa y arañas vasculares, sin cirugía, de forma ambulatorial y mínimamente invasiva.</span>
+                </li>
+                <li>
+                  <strong>Curaciones</strong>
+                  <span>Limpieza, desinfección y manejo de heridas y úlceras.</span>
+                </li>
+                <li>
+                  <strong>Inyectología</strong>
+                  <span>Aplicación segura de medicamentos por vía intramuscular, intravenosa y subcutánea.</span>
+                </li>
+                <li>
+                  <strong>Certificados médicos</strong>
+                  <span>Expedición de certificado estudiantil y otros certificados de salud según normativa vigente.</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
