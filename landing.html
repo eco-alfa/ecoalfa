@@ -1037,6 +1037,119 @@
         padding: 40px;
       }
 
+      /* Store */
+      .store {
+        position: relative;
+        padding: 80px 0;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      }
+
+      .store-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 32px;
+        margin-top: 48px;
+      }
+
+      .product-card {
+        background: white;
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .product-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+        border-color: var(--eco-green);
+      }
+
+      .product-image {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+
+      .product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+      }
+
+      .product-card:hover .product-image img {
+        transform: scale(1.1);
+      }
+
+      .product-info {
+        padding: 24px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .product-category {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--eco-green);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+
+      .product-name {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--text);
+        margin-bottom: 8px;
+        line-height: 1.2;
+      }
+
+      .product-description {
+        font-size: 0.95rem;
+        color: var(--text-light);
+        margin-bottom: 20px;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .product-footer {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .product-price {
+        font-size: 1.25rem;
+        font-weight: 900;
+        color: var(--text);
+      }
+
+      .product-buy {
+        background: var(--eco-green);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+      }
+
+      .product-buy:hover {
+        background: #369124;
+        transform: scale(1.05);
+      }
+
       /* Plans */
       .plans {
         position: relative;
@@ -1401,6 +1514,7 @@
         </a>
         <nav class="nav">
           <a href="#servicios">Servicios</a>
+          <a href="#tienda">Tienda</a>
           <a href="#planes">Planes</a>
           <a href="#nosotros">Nosotros</a>
           <a href="#contacto">Contacto</a>
@@ -1618,6 +1732,18 @@
         </div>
       </section>
 
+      <section id="tienda" class="store">
+        <div class="container">
+          <div class="section-header">
+            <h2>Tienda Naturista</h2>
+            <p>Complementa tu bienestar con nuestra selección de productos naturales de alta calidad.</p>
+          </div>
+          <div class="store-grid" id="store-grid">
+            <div class="gallery-empty">Cargando productos...</div>
+          </div>
+        </div>
+      </section>
+
       <section id="planes" class="plans">
         <div class="bg-blob plans-blob" aria-hidden="true"></div>
         <div class="container">
@@ -1672,6 +1798,7 @@
           </div>
           <div class="footer-col">
             <h4>Enlaces</h4>
+            <a href="#tienda">Tienda Naturista</a>
             <a href="#planes">Planes</a>
             <a href="#nosotros">Nosotros</a>
             <a href="#contacto">Contacto</a>
@@ -1807,6 +1934,7 @@
         try { applyConfig(config); } catch (error) { console.error("Error en applyConfig:", error); }
         try { await setupPromoModal(config); } catch (error) { console.error("Error en setupPromoModal:", error); }
         try { await setupGallery(config); } catch (error) { console.error("Error en setupGallery:", error); }
+        try { await setupStore(config); } catch (error) { console.error("Error en setupStore:", error); }
         try { await setupHeroCarousel(); } catch (error) { console.error("Error en setupHeroCarousel:", error); }
         try { initFloatingVideoThumb(); } catch (error) { console.error("Error en initFloatingVideoThumb:", error); }
         try { setupPlans(config); } catch (error) { console.error("Error en setupPlans:", error); }
@@ -1823,6 +1951,7 @@
 
         let promoRtdbItems = [];
         let galleryRtdbItems = [];
+        let storeRtdbItems = [];
         try {
           const promoRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/promo"));
           promoRtdbItems = promoRtdbSnap.exists()
@@ -1839,10 +1968,19 @@
         } catch (e) {
           console.warn("Error leyendo siteMedia/gallery de RTDB:", e);
         }
+        try {
+          const storeRtdbSnap = await get(child(dbRef(rtdb), "siteMedia/store"));
+          storeRtdbItems = storeRtdbSnap.exists()
+            ? Object.entries(storeRtdbSnap.val()).map(([id, item]) => ({ id, ...item, source: "rtdb" }))
+            : [];
+        } catch (e) {
+          console.warn("Error leyendo siteMedia/store de RTDB:", e);
+        }
 
         return {
           promoItems: [...fsItems.filter((item) => item.kind === "promo"), ...promoRtdbItems].sort((a, b) => (a.position || 0) - (b.position || 0)),
-          galleryItems: [...fsItems.filter((item) => item.kind === "gallery"), ...galleryRtdbItems].sort((a, b) => (a.position || 0) - (b.position || 0))
+          galleryItems: [...fsItems.filter((item) => item.kind === "gallery"), ...galleryRtdbItems].sort((a, b) => (a.position || 0) - (b.position || 0)),
+          storeItems: [...fsItems.filter((item) => item.kind === "store"), ...storeRtdbItems].sort((a, b) => (a.position || 0) - (b.position || 0))
         };
       }
 
@@ -2190,6 +2328,39 @@
         dots.querySelectorAll(".gallery-dot").forEach((dot) => {
           dot.addEventListener("click", () => showSlide(Number(dot.dataset.galleryDot)));
         });
+      }
+
+      async function setupStore(config) {
+        const items = config.storeItems || [];
+        const grid = document.getElementById("store-grid");
+        if (!grid) return;
+
+        if (items.length === 0) {
+          grid.innerHTML = `<div class="gallery-empty">Próximamente... estamos preparando nuestra selección de productos naturales para ti.</div>`;
+          return;
+        }
+
+        grid.innerHTML = items.map((item) => {
+          const whatsappMsg = encodeURIComponent(`Hola Ecoalfa, me interesa el producto: ${item.name}`);
+          const whatsappLink = `https://wa.me/${config.whatsappNumber}?text=${whatsappMsg}`;
+          
+          return `
+            <article class="product-card">
+              <div class="product-image">
+                <img src="${item.url}" alt="${item.name}" loading="lazy" />
+              </div>
+              <div class="product-info">
+                <span class="product-category">Tienda Naturista</span>
+                <h3 class="product-name">${item.name}</h3>
+                <p class="product-description">${item.description || ""}</p>
+                <div class="product-footer">
+                  <span class="product-price">${item.price}</span>
+                  <a href="${whatsappLink}" target="_blank" class="product-buy">Comprar</a>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join("");
       }
 
       let heroMediaItems = [];

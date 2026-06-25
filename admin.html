@@ -37,9 +37,11 @@
       let promoMediaItems = [];
       let galleryMediaItems = [];
       let heroMediaItems = [];
+      let storeMediaItems = [];
       let pendingPromoFiles = [];
       let pendingGalleryFiles = [];
       let pendingHeroFiles = [];
+      let pendingStoreFiles = [];
 
       const DEFAULT_CONFIG = {
         companyName: "Ecoalfa",
@@ -169,10 +171,12 @@
         promoMediaItems = await loadMediaByKind("promo");
         galleryMediaItems = await loadMediaByKind("gallery");
         heroMediaItems = await loadMediaByKind("hero");
+        storeMediaItems = await loadMediaByKind("store");
 
         currentConfig.promoItems = promoMediaItems;
         currentConfig.galleryItems = galleryMediaItems;
         currentConfig.heroItems = heroMediaItems;
+        currentConfig.storeItems = storeMediaItems;
       }
 
       async function saveConfig() {
@@ -462,6 +466,45 @@
                   </div>
 
                   <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900">Tienda Naturista</h2>
+                    <p class="mt-1 text-sm text-slate-500">Agrega productos a la tienda con su imagen, descripción y precio.</p>
+
+                    <div class="mt-5 space-y-4">
+                      <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Imagen (URL o archivo abajo)</label>
+                          <input id="store-url" type="text" placeholder="https://..." class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        </div>
+                        <div>
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Nombre del producto</label>
+                          <input id="store-name" type="text" placeholder="Ej: Aceite de Coco" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        </div>
+                        <div>
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Precio</label>
+                          <input id="store-price" type="text" placeholder="Ej: $25.000" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                        </div>
+                        <div class="sm:col-span-2">
+                          <label class="mb-1 block text-sm font-medium text-slate-700">Descripción corta</label>
+                          <textarea id="store-description" rows="2" placeholder="Ej: 100% natural, ideal para el cabello..." class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"></textarea>
+                        </div>
+                      </div>
+                      <button id="add-store-url" class="w-full rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Agregar por URL</button>
+
+                      <div class="border-t border-slate-200 pt-4">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">O subir imagen directamente</p>
+                        <div class="mt-2">
+                          <input id="store-files" type="file" accept="image/*" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700" />
+                        </div>
+                        <button id="upload-store" class="mt-2 w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">Subir y agregar</button>
+                      </div>
+
+                      <div id="store-list" class="space-y-3">
+                        ${renderStoreItems(cfg.storeItems)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
                     <h2 class="text-lg font-bold text-slate-900">Modal publicitario</h2>
                     <p class="mt-1 text-sm text-slate-500">Imágenes y videos que aparecerán en un modal al abrir la landing page.</p>
 
@@ -571,6 +614,25 @@
         }).join("");
       }
 
+      function renderStoreItems(items) {
+        if (!items || items.length === 0) {
+          return `<p class="text-sm text-slate-500">No hay productos en la tienda.</p>`;
+        }
+        return items.map((item) => `
+          <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+            <img src="${item.url}" alt="" class="h-16 w-16 rounded-lg object-cover bg-slate-100" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between">
+                <p class="truncate text-sm font-bold text-slate-900">${item.name}</p>
+                <p class="text-sm font-semibold text-emerald-700">${item.price}</p>
+              </div>
+              <p class="truncate text-xs text-slate-500">${item.description || "Sin descripción"}</p>
+            </div>
+            <button data-remove-store="${item.id || ""}" class="rounded-lg px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50">Quitar</button>
+          </div>
+        `).join("");
+      }
+
       function bindAdminEvents() {
         document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
         document.getElementById("save-config").addEventListener("click", saveConfig);
@@ -580,6 +642,8 @@
         document.getElementById("add-gallery-url").addEventListener("click", addGalleryUrl);
         document.getElementById("upload-hero").addEventListener("click", uploadHeroFiles);
         document.getElementById("add-hero-url").addEventListener("click", addHeroUrl);
+        document.getElementById("upload-store").addEventListener("click", uploadStoreFiles);
+        document.getElementById("add-store-url").addEventListener("click", addStoreUrl);
 
 
 
@@ -667,6 +731,24 @@
           });
         });
 
+        document.querySelectorAll("[data-remove-store]").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const id = button.dataset.removeStore;
+            if (!id) return;
+            const item = storeMediaItems.find((item) => item.id === id);
+            const { deleted, errors } = await deleteMediaItem(id, item, `siteMedia/store/${id}`);
+            if (deleted) {
+              storeMediaItems = storeMediaItems.filter((item) => item.id !== id);
+              currentConfig.storeItems = storeMediaItems;
+              document.getElementById("store-list").innerHTML = renderStoreItems(currentConfig.storeItems);
+              bindAdminEvents();
+              showMessage("Producto eliminado.", "success");
+            } else {
+              showMessage("No se pudo eliminar: " + errors.join("; "), "error");
+            }
+          });
+        });
+
         document.getElementById("promo-files").addEventListener("change", (event) => {
           pendingPromoFiles = Array.from(event.target.files);
         });
@@ -677,6 +759,10 @@
 
         document.getElementById("hero-files").addEventListener("change", (event) => {
           pendingHeroFiles = Array.from(event.target.files);
+        });
+
+        document.getElementById("store-files").addEventListener("change", (event) => {
+          pendingStoreFiles = Array.from(event.target.files);
         });
       }
 
@@ -832,6 +918,92 @@
         } finally {
           button.disabled = false;
           button.textContent = "Subir archivos";
+        }
+      }
+
+      async function addStoreUrl() {
+        const urlInput = document.getElementById("store-url");
+        const nameInput = document.getElementById("store-name");
+        const priceInput = document.getElementById("store-price");
+        const descInput = document.getElementById("store-description");
+
+        const url = urlInput.value.trim();
+        const name = nameInput.value.trim();
+        const price = priceInput.value.trim();
+        const description = descInput.value.trim();
+
+        if (!url || !name || !price) {
+          showMessage("Completa URL, nombre y precio.", "error");
+          return;
+        }
+
+        const item = { url, name, price, description, type: "image", kind: "store", position: Date.now() };
+        const docRef = await addDoc(collection(db, "siteMedia"), item);
+        const saved = { id: docRef.id, ...item };
+        
+        storeMediaItems = [...storeMediaItems, saved];
+        currentConfig.storeItems = storeMediaItems;
+        document.getElementById("store-list").innerHTML = renderStoreItems(currentConfig.storeItems);
+        
+        urlInput.value = "";
+        nameInput.value = "";
+        priceInput.value = "";
+        descInput.value = "";
+        
+        bindAdminEvents();
+        showMessage("Producto agregado correctamente.", "success");
+      }
+
+      async function uploadStoreFiles() {
+        const nameInput = document.getElementById("store-name");
+        const priceInput = document.getElementById("store-price");
+        const descInput = document.getElementById("store-description");
+        
+        const name = nameInput.value.trim();
+        const price = priceInput.value.trim();
+        const description = descInput.value.trim();
+
+        if (!pendingStoreFiles.length) {
+          showMessage("Selecciona una imagen.", "error");
+          return;
+        }
+        if (!name || !price) {
+          showMessage("Completa nombre y precio.", "error");
+          return;
+        }
+
+        const button = document.getElementById("upload-store");
+        button.disabled = true;
+        button.textContent = "Subiendo...";
+
+        try {
+          const file = pendingStoreFiles[0];
+          if (file.size > 7 * 1024 * 1024) throw new Error("Archivo muy grande (máx 7MB)");
+          
+          const media = await prepareMediaUpload(file, 0, "store");
+          const item = { ...media, name, price, description, kind: "store" };
+          
+          const rtdbItemRef = push(dbRef(rtdb, "siteMedia/store"));
+          await set(rtdbItemRef, item);
+          const saved = { id: rtdbItemRef.key, ...item, source: "rtdb" };
+
+          storeMediaItems = [...storeMediaItems, saved];
+          currentConfig.storeItems = storeMediaItems;
+          document.getElementById("store-list").innerHTML = renderStoreItems(currentConfig.storeItems);
+          
+          document.getElementById("store-files").value = "";
+          nameInput.value = "";
+          priceInput.value = "";
+          descInput.value = "";
+          pendingStoreFiles = [];
+          
+          bindAdminEvents();
+          showMessage("Producto subido correctamente.", "success");
+        } catch (error) {
+          showMessage(error.message, "error");
+        } finally {
+          button.disabled = false;
+          button.textContent = "Subir y agregar";
         }
       }
 
