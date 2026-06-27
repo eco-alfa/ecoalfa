@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Políticas y condiciones de uso de Ecoalfa. Conoce nuestros términos, privacidad y tratamiento de datos." />
+    <title>Políticas y Condiciones | Ecoalfa</title>
+
+    <link rel="icon" type="image/png" href="./assets/ecoalfa-logo.png" />
+
+    <style>
+      :root {
+        --eco-blue: #009EE3;
+        --eco-blue-dark: #0077B6;
+        --eco-blue-light: #E6F6FC;
+        --eco-green: #43B02A;
+        --eco-green-light: #E8F5E4;
+        --text: #333333;
+        --text-light: #5A6A7A;
+        --bg: #FFFFFF;
+        --bg-soft: #F5F9FC;
+        --border: #E2E8F0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        line-height: 1.7;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .container {
+        width: min(1100px, calc(100% - 48px));
+        margin: 0 auto;
+      }
+
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(255, 255, 255, 0.98);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(8px);
+      }
+
+      .header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 16px 0;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+      }
+
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .brand-text strong {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      .brand-text span {
+        font-size: 0.7rem;
+        color: var(--text-light);
+        font-style: italic;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .nav a {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text);
+        transition: color 0.2s;
+      }
+
+      .nav a:hover {
+        color: var(--eco-blue);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 10px 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: var(--eco-blue);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: var(--eco-blue-dark);
+      }
+
+      .menu-toggle {
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        width: 44px;
+        height: 44px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 10px;
+        border-radius: 12px;
+      }
+
+      .menu-toggle span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: var(--text);
+        border-radius: 2px;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .menu-toggle.active span:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+      }
+
+      .menu-toggle.active span:nth-child(2) {
+        opacity: 0;
+      }
+
+      .menu-toggle.active span:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+      }
+
+      .page-header {
+        padding: 80px 0 40px;
+        background: linear-gradient(180deg, var(--eco-blue-light) 0%, var(--bg) 100%);
+        text-align: center;
+      }
+
+      .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0 0 12px;
+      }
+
+      .page-header p {
+        font-size: 1.1rem;
+        color: var(--text-light);
+        margin: 0;
+      }
+
+      .content {
+        padding: 48px 0 80px;
+      }
+
+      .policy-section {
+        margin-bottom: 48px;
+      }
+
+      .policy-section h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0 0 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--eco-blue-light);
+      }
+
+      .policy-section h3 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text);
+        margin: 24px 0 12px;
+      }
+
+      .policy-section p {
+        margin: 0 0 12px;
+        color: var(--text-light);
+      }
+
+      .policy-section ul {
+        margin: 0 0 16px;
+        padding-left: 24px;
+        color: var(--text-light);
+      }
+
+      .policy-section li {
+        margin-bottom: 8px;
+      }
+
+      .last-updated {
+        display: inline-block;
+        background: var(--eco-green-light);
+        color: var(--eco-green);
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 999px;
+        margin-bottom: 32px;
+      }
+
+      .footer {
+        background: var(--bg-soft);
+        border-top: 1px solid var(--border);
+        padding: 48px 0 32px;
+      }
+
+      .footer-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr;
+        gap: 40px;
+      }
+
+      .footer-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .footer-brand img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+      }
+
+      .footer-brand strong {
+        font-size: 1.1rem;
+        font-weight: 800;
+      }
+
+      .footer-col p {
+        font-size: 0.95rem;
+        color: var(--text-light);
+        margin: 0;
+      }
+
+      .footer-col h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 16px;
+        color: var(--text);
+      }
+
+      .footer-col a {
+        display: block;
+        font-size: 0.95rem;
+        color: var(--text-light);
+        margin-bottom: 10px;
+        transition: color 0.2s;
+      }
+
+      .footer-col a:hover {
+        color: var(--eco-blue);
+      }
+
+      .footer-bottom {
+        border-top: 1px solid var(--border);
+        padding-top: 24px;
+        margin-top: 40px;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-light);
+      }
+
+      @media (max-width: 768px) {
+        .menu-toggle {
+          display: flex;
+        }
+
+        .nav {
+          display: none;
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 24px;
+          right: 24px;
+          background: white;
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+          padding: 16px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 4px;
+          z-index: 100;
+        }
+
+        .nav.active {
+          display: flex;
+        }
+
+        .nav a {
+          padding: 12px 16px;
+          border-radius: 12px;
+        }
+
+        .nav .btn {
+          margin-top: 8px;
+          width: 100%;
+          text-align: center;
+        }
+
+        .page-header h1 {
+          font-size: 2rem;
+        }
+
+        .footer-grid {
+          grid-template-columns: 1fr;
+          gap: 32px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a href="./landing.html" class="brand">
+          <img src="./assets/ecoalfa-logo.png" alt="Ecoalfa" />
+          <div class="brand-text">
+            <strong>ECOALFA</strong>
+            <span>su salud es lo más importante</span>
+          </div>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <nav class="nav" id="main-nav">
+          <a href="./landing.html">Inicio</a>
+          <a href="./landing.html#servicios">Servicios</a>
+          <a href="./landing.html#tienda">Tienda</a>
+          <a href="./landing.html#planes">Planes</a>
+          <a href="./landing.html#contacto">Contacto</a>
+          <a href="./citas.html" class="btn btn-primary">Ingresar</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-header">
+        <div class="container">
+          <h1>Políticas y Condiciones</h1>
+          <p>Conoce los términos que rigen el uso de nuestros servicios y cómo cuidamos tu información.</p>
+        </div>
+      </section>
+
+      <section class="content">
+        <div class="container">
+          <span class="last-updated">Última actualización: 25 de junio de 2026</span>
+
+          <article class="policy-section">
+            <h2>1. Términos y Condiciones</h2>
+            <p>
+              Bienvenido a Ecoalfa. Al acceder y utilizar nuestro sitio web, aplicaciones y servicios, aceptas cumplir con los siguientes términos y condiciones. Si no estás de acuerdo con alguna parte de estos términos, te recomendamos no utilizar nuestros servicios.
+            </p>
+
+            <h3>1.1 Uso del sitio</h3>
+            <p>
+              Ecoalfa pone a disposición información sobre servicios médicos, agendamiento de citas, planes de bienestar y productos de nuestra Tienda Naturista. El contenido es únicamente informativo y no sustituye la consulta médica presencial o virtual con un profesional de la salud.
+            </p>
+
+            <h3>1.2 Agendamiento de citas</h3>
+            <p>
+              Al agendar una cita a través de nuestros canales, te comprometes a proporcionar información veraz, actualizada y completa. Ecoalfa se reserva el derecho de cancelar o reprogramar citas en caso de información incorrecta, disponibilidad del profesional o fuerza mayor.
+            </p>
+
+            <h3>1.3 Tienda Naturista</h3>
+            <p>
+              Los productos ofrecidos en nuestra Tienda Naturista son complementos de bienestar. Antes de consumir cualquier producto natural, consulta con tu médico, especialmente si estás embarazada, en lactancia, tomando medicamentos o tienes una condición de salud. Los precios y disponibilidad están sujetos a cambio sin previo aviso.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>2. Política de Privacidad</h2>
+            <p>
+              En Ecoalfa valoramos tu privacidad. Esta política explica cómo recopilamos, usamos, almacenamos y protegemos tu información personal.
+            </p>
+
+            <h3>2.1 Información que recopilamos</h3>
+            <ul>
+              <li>Datos de identificación: nombre, tipo y número de documento, fecha de nacimiento.</li>
+              <li>Datos de contacto: correo electrónico, teléfono, dirección.</li>
+              <li>Información de salud: motivo de consulta, historial clínico relevante y registros médicos.</li>
+              <li>Datos de navegación: dirección IP, tipo de dispositivo, navegador y páginas visitadas.</li>
+            </ul>
+
+            <h3>2.2 Uso de la información</h3>
+            <ul>
+              <li>Prestar los servicios de salud y bienestar contratados.</li>
+              <li>Agendar, confirmar y recordar citas médicas.</li>
+              <li>Responder solicitudes, dudas o comentarios.</li>
+              <li>Mejorar la experiencia de usuario y nuestros servicios.</li>
+              <li>Cumplir con obligaciones legales y regulatorias.</li>
+            </ul>
+
+            <h3>2.3 Protección de datos</h3>
+            <p>
+              Implementamos medidas técnicas y administrativas para proteger tu información contra acceso no autorizado, pérdida, alteración o divulgación. Sin embargo, ningún sistema es completamente seguro. Si tienes razones para creer que tu información fue comprometida, contáctanos de inmediato.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>3. Tratamiento de Datos Personales</h2>
+            <p>
+              De acuerdo con la Ley 1581 de 2012 de Colombia y el Decreto 1377 de 2013, Ecoalfa actúa como responsable del tratamiento de datos personales. Al proporcionar tus datos, autorizas de manera libre, previa, expresa e informada su recopilación y uso para las finalidades descritas.
+            </p>
+
+            <h3>3.1 Derechos del titular</h3>
+            <p>Como titular de tus datos personales tienes derecho a:</p>
+            <ul>
+              <li>Conocer, actualizar y rectificar tus datos personales.</li>
+              <li>Solicitar prueba de la autorización otorgada.</li>
+              <li>Ser informado sobre el uso de tus datos.</li>
+              <li>Presentar quejas ante la Superintendencia de Industria y Comercio por infracciones.</li>
+              <li>Revocar la autorización y solicitar la supresión de tus datos en los casos previstos por la ley.</li>
+            </ul>
+
+            <h3>3.2 Ejercicio de derechos</h3>
+            <p>
+              Para ejercer tus derechos de acceso, rectificación, cancelación, oposición o revocatoria, puedes enviar una solicitud a nuestro correo electrónico o a través de los canales de contacto indicados en la página principal.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>4. Propiedad Intelectual</h2>
+            <p>
+              Todo el contenido del sitio web de Ecoalfa, incluyendo textos, imágenes, logotipos, diseño, código y materiales, es propiedad de Ecoalfa o de sus licenciantes. Queda prohibida su reproducción, distribución, comunicación pública o transformación sin autorización expresa.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>5. Limitación de Responsabilidad</h2>
+            <p>
+              Ecoalfa no se hace responsable por decisiones de salud que el usuario tome basándose únicamente en la información publicada en el sitio. La información proporcionada es orientativa y no constituye diagnóstico, tratamiento o prescripción médica. Siempre consulta a un profesional de la salud calificado.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>6. Modificaciones</h2>
+            <p>
+              Ecoalfa puede actualizar estos términos y políticas en cualquier momento. Las modificaciones entrarán en vigor desde su publicación en esta página. Te recomendamos revisar esta sección periódicamente.
+            </p>
+          </article>
+
+          <article class="policy-section">
+            <h2>7. Contacto</h2>
+            <p>
+              Si tienes preguntas, dudas o deseas ejercer tus derechos sobre datos personales, puedes contactarnos a través de los canales disponibles en nuestra página principal o en la sección de contacto de la landing page.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <div class="footer-brand">
+              <img src="./assets/ecoalfa-logo.png" alt="Ecoalfa" />
+              <strong>ECOALFA</strong>
+            </div>
+            <p>
+              Medicina en Colombia. Atención cercana, clara y personalizada para tu bienestar y el de tu familia.
+            </p>
+          </div>
+          <div class="footer-col">
+            <h4>Enlaces</h4>
+            <a href="./landing.html">Inicio</a>
+            <a href="./landing.html#servicios">Servicios</a>
+            <a href="./landing.html#tienda">Tienda Naturista</a>
+            <a href="./landing.html#planes">Planes</a>
+          </div>
+          <div class="footer-col">
+            <h4>Legal</h4>
+            <a href="./politicas.html">Políticas y Condiciones</a>
+            <a href="./landing.html#contacto">Contacto</a>
+            <a href="./citas.html">Ingresar</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          © 2026 Ecoalfa. Todos los derechos reservados.
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        const toggle = document.getElementById("menu-toggle");
+        const nav = document.getElementById("main-nav");
+        if (!toggle || !nav) return;
+
+        function closeMenu() {
+          nav.classList.remove("active");
+          toggle.classList.remove("active");
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-label", "Abrir menú");
+        }
+
+        toggle.addEventListener("click", () => {
+          const isActive = nav.classList.toggle("active");
+          toggle.classList.toggle("active", isActive);
+          toggle.setAttribute("aria-expanded", isActive ? "true" : "false");
+          toggle.setAttribute("aria-label", isActive ? "Cerrar menú" : "Abrir menú");
+        });
+
+        nav.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", closeMenu);
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!nav.contains(event.target) && !toggle.contains(event.target)) {
+            closeMenu();
+          }
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && nav.classList.contains("active")) {
+            closeMenu();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
