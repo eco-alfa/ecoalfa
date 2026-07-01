@@ -455,6 +455,7 @@
         <video
           id="hero-video"
           autoplay
+          muted
           loop
           playsinline
           controls
@@ -712,12 +713,18 @@
           }
         }
 
-        const unmuteOnInteraction = () => {
-          video.muted = false;
-          video.volume = 1;
+        const unmuteOnInteraction = async () => {
+          try {
+            video.muted = false;
+            video.volume = 1;
+            await video.play();
+          } catch (error) {
+            console.warn("No se pudo activar el audio del video:", error);
+          }
         };
         document.addEventListener("click", unmuteOnInteraction, { once: true });
         document.addEventListener("touchstart", unmuteOnInteraction, { once: true });
+        document.addEventListener("scroll", unmuteOnInteraction, { once: true });
       }
 
       function applyVideoOverlayText() {
